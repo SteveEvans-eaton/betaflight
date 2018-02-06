@@ -45,6 +45,7 @@ typedef enum {
     RX_FRAME_COMPLETE = (1 << 0),
     RX_FRAME_FAILSAFE = (1 << 1),
     RX_FRAME_PROCESSING_REQUIRED = (1 << 2),
+    RX_FRAME_DROPPED = (1 << 3)
 } rxFrameState_e;
 
 typedef enum {
@@ -129,6 +130,7 @@ typedef struct rxConfig_s {
     ioTag_t spektrum_bind_plug_ioTag;
     uint8_t spektrum_sat_bind;              // number of bind pulses for Spektrum satellite receivers
     uint8_t spektrum_sat_bind_autoreset;    // whenever we will reset (exit) binding mode after hard reboot
+    uint8_t rssi_from_rx_protocol;			// true to use frame drop flags in the rx protocol
     uint8_t rssi_channel;
     uint8_t rssi_scale;
     uint8_t rssi_invert;
@@ -182,6 +184,8 @@ bool rxAreFlightChannelsValid(void);
 bool calculateRxChannelsAndUpdateFailsafe(timeUs_t currentTimeUs);
 
 void parseRcChannels(const char *input, rxConfig_t *rxConfig);
+
+#define RSSI_MAX_VALUE 1023
 
 void setRssiFiltered(uint16_t newRssi, rssiSource_e source);
 void setRssiUnfiltered(uint16_t rssiValue, rssiSource_e source);
