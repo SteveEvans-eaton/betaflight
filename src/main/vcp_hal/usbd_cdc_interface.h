@@ -74,7 +74,8 @@ uint32_t CDC_Receive_BytesAvailable(void);
 uint8_t usbIsConfigured(void);
 uint8_t usbIsConnected(void);
 uint32_t CDC_BaudRate(void);
-void CDC_SetCtrlLineStateCb(void (*cb)(uint16_t ctrlLineState));
+void CDC_SetCtrlLineStateCb(void (*cb)(void *context, uint16_t ctrlLineState), void *context);
+void CDC_SetBaudRateCb(void (*cb)(void *context, uint32_t baud), void *context);
 
 /* Exported macro ------------------------------------------------------------*/
 /* Exported functions ------------------------------------------------------- */

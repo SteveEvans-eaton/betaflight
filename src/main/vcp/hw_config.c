@@ -57,6 +57,8 @@ uint32_t sendLength;                                          // HJI
 static void IntToUnicode(uint32_t value, uint8_t *pbuf, uint8_t len);
 static void (*ctrlLineStateCb)(void *context, uint16_t ctrlLineState);
 static void *ctrlLineStateCbContext;
+static void (*baudRateCb)(void *context, uint32_t baud);
+static void *baudRateCbContext;
 
 /* Extern variables ----------------------------------------------------------*/
 
@@ -114,6 +116,10 @@ void Set_System(void)
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_OD;
     GPIO_Init(GPIOA, &GPIO_InitStructure);
 #endif
+
+    // Initialise callbacks
+    ctrlLineStateCb = NULL;
+    baudRateCb = NULL;
 
     /* Configure the EXTI line 18 connected internally to the USB IP */
     EXTI_ClearITPendingBit(EXTI_Line18);
@@ -392,13 +398,26 @@ uint32_t CDC_BaudRate(void)
 }
 
 /*******************************************************************************
+ * Function Name  : CDC_SetBaudRateCb
+ * Description    : Set a callback to call when baud rate changes
+ * Input          : callback function and context.
+ * Output         : None.
+ * Return         : None.
+ *******************************************************************************/
+void CDC_SetBaudRateCb(void (*cb)(void *context, uint32_t baud), void *context)
+{
+	baudRateCbContext = context;
+    baudRateCb = cb;
+}
+
+/*******************************************************************************
  * Function Name  : CDC_SetCtrlLineStateCb
  * Description    : Set a callback to call when control line state changes
  * Input          : callback function and context.
  * Output         : None.
  * Return         : None.
  *******************************************************************************/
-void CDC_SetCtrlLineStateCb(void *context, void (*cb)(void *context, uint16_t ctrlLineState))
+void CDC_SetCtrlLineStateCb(void (*cb)(void *context, uint16_t ctrlLineState), void *context)
 {
     ctrlLineStateCbContext = context;
     ctrlLineStateCb = cb;
