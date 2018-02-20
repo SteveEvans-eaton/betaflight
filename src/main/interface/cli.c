@@ -118,6 +118,7 @@ extern uint8_t __config_end;
 #include "pg/beeper_dev.h"
 #include "pg/bus_i2c.h"
 #include "pg/bus_spi.h"
+#include "pg/pinio.h"
 #include "pg/pg.h"
 #include "pg/pg_ids.h"
 #include "pg/rx_pwm.h"
@@ -908,27 +909,6 @@ static void cliSerial(char *cmdline)
 }
 
 #ifndef SKIP_SERIAL_PASSTHROUGH
-static bool strToPin(char *pch, ioTag_t *tag)
-{
-    if (strcasecmp(pch, "NONE") == 0) {
-        *tag = IO_TAG_NONE;
-        return true;
-    } else {
-        unsigned pin = 0;
-        unsigned port = (*pch >= 'a') ? *pch - 'a' : *pch - 'A';
-
-        if (port < 8) {
-            pch++;
-            pin = atoi(pch);
-            if (pin < 16) {
-                *tag = DEFIO_TAG_MAKE(port, pin);
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
 static void cliSerialPassthrough(char *cmdline)
 {
     if (isEmpty(cmdline)) {
@@ -940,7 +920,6 @@ static void cliSerialPassthrough(char *cmdline)
     uint32_t baud = 0;
     unsigned mode = 0;
     char *saveptr;
-    ioTag_t serialPassthroughDtrTag = IO_TAG_NONE;
     char* tok = strtok_r(cmdline, " ", &saveptr);
     int index = 0;
 
@@ -957,17 +936,6 @@ static void cliSerialPassthrough(char *cmdline)
                 mode |= MODE_RX;
             if (strstr(tok, "tx") || strstr(tok, "TX"))
                 mode |= MODE_TX;
-            break;
-        case 3:
-            // When programming Arduino based devices such as MinimOSD, the DTR line is used to control
-            // the reset. This parameter is the pin name, for example C8. This allows
-            // any GPIO to be used for driving DTR.
-            if (strToPin(tok, &serialPassthroughDtrTag)) {
-                if (serialPassthroughDtrTag == IO_TAG_NONE) {
-                    cliPrintLine("Invalid DTR pin");
-                    return;
-                }
-            }
             break;
         }
         index++;
@@ -1008,9 +976,9 @@ static void cliSerialPassthrough(char *cmdline)
         if (baud) {
             serialSetBaudRate(passThroughPort, baud);
         } else {
-			// Register the right side baud rate setting routine with the left side which allows setting of the UART
-			// baud rate over USB without setting it using the serialpassthrough command
-			serialSetBaudRateCb(cliPort, serialSetBaudRate, passThroughPort);
+            // Register the right side baud rate setting routine with the left side which allows setting of the UART
+            // baud rate over USB without setting it using the serialpassthrough command
+            serialSetBaudRateCb(cliPort, serialSetBaudRate, passThroughPort);
         }
 
         // If this port has a rx callback associated we need to remove it now.
@@ -1022,7 +990,7 @@ static void cliSerialPassthrough(char *cmdline)
 
     cliPrintLine("Forwarding, power cycle to exit.");
 
-    serialPassthrough(cliPort, passThroughPort, NULL, NULL, serialPassthroughDtrTag);
+    serialPassthrough(cliPort, passThroughPort, NULL, NULL);
 }
 #endif
 
@@ -3224,6 +3192,7 @@ const cliResourceValue_t resourceTable[] = {
 #endif
     { OWNER_SERIAL_TX,     PG_SERIAL_PIN_CONFIG, offsetof(serialPinConfig_t, ioTagTx[0]), SERIAL_PORT_MAX_INDEX },
     { OWNER_SERIAL_RX,     PG_SERIAL_PIN_CONFIG, offsetof(serialPinConfig_t, ioTagRx[0]), SERIAL_PORT_MAX_INDEX },
+    { OWNER_SERIAL_DTR,    PG_SERIAL_PIN_CONFIG, offsetof(serialPinConfig_t, ioTagDtr[0]), SERIAL_PORT_MAX_INDEX },
 #ifdef USE_INVERTER
     { OWNER_INVERTER,      PG_SERIAL_PIN_CONFIG, offsetof(serialPinConfig_t, ioTagInverter[0]), SERIAL_PORT_MAX_INDEX },
 #endif
@@ -3261,6 +3230,13 @@ const cliResourceValue_t resourceTable[] = {
 #endif
 #ifdef USE_MAG
     { OWNER_COMPASS_CS,    PG_COMPASS_CONFIG, offsetof(compassConfig_t, mag_spi_csn), 0 },
+#endif
+#ifdef USE_SDCARD
+    { OWNER_SDCARD_CS,     PG_SDCARD_CONFIG, offsetof(sdcardConfig_t, chipSelectTag), 0 },
+    { OWNER_SDCARD_DETECT, PG_SDCARD_CONFIG, offsetof(sdcardConfig_t, cardDetectTag), 0 },
+#endif
+#ifdef USE_PINIO
+    { OWNER_PINIO,         PG_PINIO_CONFIG, offsetof(pinioConfig_t, ioTag), PINIO_COUNT },
 #endif
 };
 
@@ -3351,6 +3327,27 @@ static void resourceCheck(uint8_t resourceIndex, uint8_t index, ioTag_t newTag)
             }
         }
     }
+}
+
+static bool strToPin(char *pch, ioTag_t *tag)
+{
+    if (strcasecmp(pch, "NONE") == 0) {
+        *tag = IO_TAG_NONE;
+        return true;
+    } else {
+        unsigned pin = 0;
+        unsigned port = (*pch >= 'a') ? *pch - 'a' : *pch - 'A';
+
+        if (port < 8) {
+            pch++;
+            pin = atoi(pch);
+            if (pin < 16) {
+                *tag = DEFIO_TAG_MAKE(port, pin);
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 static void cliResource(char *cmdline)
@@ -3759,7 +3756,7 @@ const clicmd_t cmdTable[] = {
 #endif
     CLI_COMMAND_DEF("serial", "configure serial ports", NULL, cliSerial),
 #ifndef SKIP_SERIAL_PASSTHROUGH
-    CLI_COMMAND_DEF("serialpassthrough", "passthrough serial data to port", "<id> [baud] [mode] [dtr pin]: passthrough to serial", cliSerialPassthrough),
+    CLI_COMMAND_DEF("serialpassthrough", "passthrough serial data to port", "<id> [baud] [mode] : passthrough to serial", cliSerialPassthrough),
 #endif
 #ifdef USE_SERVOS
     CLI_COMMAND_DEF("servo", "configure servos", NULL, cliServo),

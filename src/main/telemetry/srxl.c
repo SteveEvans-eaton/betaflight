@@ -133,10 +133,13 @@ typedef struct
     UINT16 volts; // 0.01V increments
     INT16 temperature; // degrees F
     INT8 dBm_A, // Average signal for A antenna in dBm
-    dBm_B; // Average signal for B antenna in dBm.
+    INT8 dBm_B; // Average signal for B antenna in dBm.
     // If only 1 antenna, set B = A
 } STRU_TELE_RPM;
 */
+
+#define STRU_TELE_RPM_EMPTY_FIELDS_COUNT 8
+
 bool srxlFrameRpm(sbuf_t *dst, timeUs_t currentTimeUs)
 {
     UNUSED(currentTimeUs);
@@ -147,6 +150,7 @@ bool srxlFrameRpm(sbuf_t *dst, timeUs_t currentTimeUs)
     sbufWriteU16BigEndian(dst, getBatteryVoltage() * 10);   // vbat is in units of 0.1V
     sbufWriteU16BigEndian(dst, 0x7FFF);                     // temperature
 
+    sbufFill(dst, 0xFF, STRU_TELE_RPM_EMPTY_FIELDS_COUNT);
     return true;
 }
 
@@ -354,15 +358,15 @@ static void convertVtxTmData(spektrumVtx_t * vtx)
 /*
 typedef struct
 {
-    UINT8		identifier;
-    UINT8		sID;	  // Secondary ID
-    UINT8		band;	  // VTX Band (0 = Fatshark, 1 = Raceband, 2 = E, 3 = B, 4 = A, 5-7 = Reserved)
-    UINT8		channel;  // VTX Channel (0-7)
-    UINT8		pit;	  // Pit/Race mode (0 = Race, 1 = Pit). Race = (normal operating) mode. Pit = (reduced power) mode. When PIT is set, it overrides all other power settings
-    UINT8		power;	  // VTX Power (0 = Off, 1 = 1mw to 14mW, 2 = 15mW to 25mW, 3 = 26mW to 99mW, 4 = 100mW to 299mW, 5 = 300mW to 600mW, 6 = 601mW+, 7 = manual control)
-    UINT16		powerDec; // VTX Power as a decimal 1mw/unit
-    UINT8		region;	  // Region (0 = USA, 1 = EU, 0xFF = N/A)
-    UINT8		rfu[7];	  // reserved
+    UINT8       identifier;
+    UINT8       sID;      // Secondary ID
+    UINT8       band;     // VTX Band (0 = Fatshark, 1 = Raceband, 2 = E, 3 = B, 4 = A, 5-7 = Reserved)
+    UINT8       channel;  // VTX Channel (0-7)
+    UINT8       pit;      // Pit/Race mode (0 = Race, 1 = Pit). Race = (normal operating) mode. Pit = (reduced power) mode. When PIT is set, it overrides all other power settings
+    UINT8       power;    // VTX Power (0 = Off, 1 = 1mw to 14mW, 2 = 15mW to 25mW, 3 = 26mW to 99mW, 4 = 100mW to 299mW, 5 = 300mW to 600mW, 6 = 601mW+, 7 = manual control)
+    UINT16      powerDec; // VTX Power as a decimal 1mw/unit
+    UINT8       region;   // Region (0 = USA, 1 = EU, 0xFF = N/A)
+    UINT8       rfu[7];   // reserved
 } STRU_TELE_VTX;
 */
 

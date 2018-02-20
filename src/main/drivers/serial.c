@@ -91,33 +91,20 @@ void serialSetCtrlLineStateCb(serialPort_t *serialPort, void (*cb)(serialPort_t 
     // If a callback routine for changes to control line state is supported by the underlying
     // driver, then set the callback.
     if (serialPort->vTable->setCtrlLineStateCb) {
-    	serialPort->vTable->setCtrlLineStateCb(serialPort, cb, context);
+        serialPort->vTable->setCtrlLineStateCb(serialPort, cb, context);
     }
-}
-
-void serialSetCtrlLineStateDtrPin(serialPort_t *serialPort, ioTag_t ioTagDtr)
-{
-#ifdef UNIT_TEST
-	UNUSED(serialPort);
-	UNUSED(ioTagDtr);
-#else /* UNIT_TEST */
-	serialPinConfigMutable()->ioTagDtr[serialPort->identifier] = ioTagDtr;
-	IO_t ioDtr = IOGetByTag(ioTagDtr);
-    IOInit(ioDtr, OWNER_SERIAL_TX, 0);
-    IOConfigGPIO(ioDtr, IOCFG_OUT_PP);
-#endif /* UNIT_TEST */
 }
 
 void serialSetCtrlLineState(serialPort_t *serialPort, uint16_t ctrlLineState)
 {
-	// For now only handle DTR pin, not RTS
+    // For now only handle DTR pin, not RTS
 #ifdef UNIT_TEST
-	UNUSED(serialPort);
-	UNUSED(ctrlLineState);
+    UNUSED(serialPort);
+    UNUSED(ctrlLineState);
 #else /* UNIT_TEST */
-	ioTag_t serialPassthroughDtrPin = serialPinConfig()->ioTagDtr[serialPort->identifier];
-    if (serialPassthroughDtrPin != IO_TAG_NONE) {
-    	IOWrite(IOGetByTag(serialPassthroughDtrPin), ~ctrlLineState & CTRL_LINE_STATE_DTR);
+    ioTag_t serialPassthroughDtrPin = serialPinConfig()->ioTagDtr[serialPort->identifier];
+    if (serialPassthroughDtrPin) {
+        IOWrite(IOGetByTag(serialPassthroughDtrPin), ~ctrlLineState & CTRL_LINE_STATE_DTR);
     }
 #endif /* UNIT_TEST */
 }
@@ -127,7 +114,7 @@ void serialSetBaudRateCb(serialPort_t *serialPort, void (*cb)(serialPort_t *cont
     // If a callback routine for changes to baud rate is supported by the underlying
     // driver, then set the callback.
     if (serialPort->vTable->setBaudRateCb) {
-    	serialPort->vTable->setBaudRateCb(serialPort, cb, context);
+        serialPort->vTable->setBaudRateCb(serialPort, cb, context);
     }
 }
 

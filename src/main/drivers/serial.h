@@ -43,8 +43,9 @@ typedef enum {
      * To ensure the first start bit to be sent, prepend a zero byte (0x00)
      * to actual data bytes.
      */
-    SERIAL_BIDIR_OD      = 0 << 4,
-    SERIAL_BIDIR_PP      = 1 << 4
+    SERIAL_BIDIR_OD        = 0 << 4,
+    SERIAL_BIDIR_PP        = 1 << 4,
+    SERIAL_BIDIR_NOPULL    = 1 << 5, // disable pulls in BIDIR RX mode
 } portOptions_e;
 
 // Define known line control states which may be passed up by underlying serial driver callback
@@ -128,7 +129,6 @@ uint8_t serialRead(serialPort_t *instance);
 void serialSetBaudRate(serialPort_t *instance, uint32_t baudRate);
 void serialSetMode(serialPort_t *instance, portMode_e mode);
 void serialSetCtrlLineStateCb(serialPort_t *instance, void (*cb)(serialPort_t *context, uint16_t ctrlLineState), serialPort_t *context);
-void serialSetCtrlLineStateDtrPin(serialPort_t *instance, ioTag_t ioTagDtr);
 void serialSetCtrlLineState(serialPort_t *instance, uint16_t ctrlLineState);
 void serialSetBaudRateCb(serialPort_t *instance, void (*cb)(serialPort_t *context, uint32_t baud), serialPort_t *context);
 bool isSerialTransmitBufferEmpty(const serialPort_t *instance);

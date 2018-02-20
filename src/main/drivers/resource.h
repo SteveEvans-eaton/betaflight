@@ -31,6 +31,7 @@ typedef enum {
     OWNER_ADC_RSSI,
     OWNER_SERIAL_TX,
     OWNER_SERIAL_RX,
+    OWNER_SERIAL_DTR,
     OWNER_PINDEBUG,
     OWNER_TIMER,
     OWNER_SONAR_TRIGGER,
@@ -70,6 +71,7 @@ typedef enum {
     OWNER_TIMUP,
     OWNER_RANGEFINDER,
     OWNER_RX_SPI,
+    OWNER_PINIO,
     OWNER_TOTAL_COUNT
 } resourceOwner_e;
 

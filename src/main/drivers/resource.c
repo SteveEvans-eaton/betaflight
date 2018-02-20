@@ -31,6 +31,7 @@ const char * const ownerNames[OWNER_TOTAL_COUNT] = {
     "ADC_RSSI",
     "SERIAL_TX",
     "SERIAL_RX",
+    "SERIAL_DTR",
     "DEBUG",
     "TIMER",
     "SONAR_TRIGGER",
@@ -69,5 +70,6 @@ const char * const ownerNames[OWNER_TOTAL_COUNT] = {
     "CAMERA_CONTROL",
     "TIMUP",
     "RANGEFINDER",
-    "RX_SPI"
+    "RX_SPI",
+    "PINIO",
 };

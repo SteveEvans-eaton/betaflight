@@ -412,6 +412,22 @@ serialPort_t *openSerialPort(
         return NULL;
     }
 
+    ioTag_t ioDtrTag = serialPinConfig()->ioTagDtr[identifier];
+
+#ifdef UNIT_TEST
+    UNUSED(ioDtrTag);
+#else /* UNIT_TEST */
+    // Initialise DTR pin if defined
+    if (ioDtrTag) {
+        IO_t ioDtr = IOGetByTag(ioDtrTag);
+        IOInit(ioDtr, OWNER_SERIAL_DTR, identifier);
+        // Set the initial state before enabling the output to prevent a glitch
+        // Note that MW_OSD must be built with MAX_SOFTRESET defined for this to work as desired
+        IOWrite(ioDtr, 0);
+        IOConfigGPIO(ioDtr, IOCFG_OUT_PP);
+    }
+#endif /* UNIT_TEST */
+
     serialPort->identifier = identifier;
 
     serialPortUsage->function = function;
@@ -429,6 +445,18 @@ void closeSerialPort(serialPort_t *serialPort)
     }
 
     // TODO wait until data has been transmitted.
+
+    ioTag_t ioDtrTag = serialPinConfig()->ioTagDtr[serialPort->identifier];
+
+#ifdef UNIT_TEST
+    UNUSED(ioDtrTag);
+#else /* UNIT_TEST */
+    // Negate DTR pin if defined
+    if (ioDtrTag) {
+        IO_t ioDtr = IOGetByTag(ioDtrTag);
+        IOWrite(ioDtr, CTRL_LINE_STATE_DTR);
+    }
+#endif /* UNIT_TEST */
 
     serialPort->rxCallback = NULL;
 
@@ -457,11 +485,13 @@ void serialInit(bool softserialEnabled, serialPortIdentifier_e serialPortToDisab
 
         if ((serialPortUsageList[index].identifier == SERIAL_PORT_SOFTSERIAL1
 #ifdef USE_SOFTSERIAL1
-            && !(softserialEnabled && serialPinConfig()->ioTagTx[RESOURCE_SOFT_OFFSET + SOFTSERIAL1])
+            && !(softserialEnabled && (serialPinConfig()->ioTagTx[RESOURCE_SOFT_OFFSET + SOFTSERIAL1] ||
+                serialPinConfig()->ioTagRx[RESOURCE_SOFT_OFFSET + SOFTSERIAL1]))
 #endif
            ) || (serialPortUsageList[index].identifier == SERIAL_PORT_SOFTSERIAL2
 #ifdef USE_SOFTSERIAL2
-            && !(softserialEnabled && serialPinConfig()->ioTagTx[RESOURCE_SOFT_OFFSET + SOFTSERIAL2])
+            && !(softserialEnabled && (serialPinConfig()->ioTagTx[RESOURCE_SOFT_OFFSET + SOFTSERIAL2] ||
+                serialPinConfig()->ioTagRx[RESOURCE_SOFT_OFFSET + SOFTSERIAL2]))
 #endif
             )) {
             serialPortUsageList[index].identifier = SERIAL_PORT_NONE;
@@ -509,17 +539,12 @@ static void nopConsumer(uint8_t data)
     UNUSED(data);
 }
 
-static void cbCtrlLine(serialPort_t *context, uint16_t ctrl)
-{
-    serialSetCtrlLineState(context, ctrl);
-}
-
 /*
  A high-level serial passthrough implementation. Used by cli to start an
  arbitrary serial passthrough "proxy". Optional callbacks can be given to allow
  for specialized data processing.
  */
-void serialPassthrough(serialPort_t *left, serialPort_t *right, serialConsumer *leftC, serialConsumer *rightC, ioTag_t serialPassthroughDtrTag)
+void serialPassthrough(serialPort_t *left, serialPort_t *right, serialConsumer *leftC, serialConsumer *rightC)
 {
     waitForSerialPortToFinishTransmitting(left);
     waitForSerialPortToFinishTransmitting(right);
@@ -533,12 +558,7 @@ void serialPassthrough(serialPort_t *left, serialPort_t *right, serialConsumer *
     LED1_OFF;
 
     // Register control line state callback
-    if (serialPassthroughDtrTag != IO_TAG_NONE) {
-#ifndef SITL
-    	serialSetCtrlLineStateDtrPin(right, serialPassthroughDtrTag);
-#endif
-    	serialSetCtrlLineStateCb(left, cbCtrlLine, right);
-    }
+    serialSetCtrlLineStateCb(left, serialSetCtrlLineState, right);
 
     // Either port might be open in a mode other than MODE_RXTX. We rely on
     // serialRxBytesWaiting() to do the right thing for a TX only port. No
