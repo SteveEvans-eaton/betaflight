@@ -25,6 +25,9 @@
 
 #include "build/version.h"
 
+#include "cms/cms.h"
+#include "io/displayport_srxl.h"
+
 #include "common/crc.h"
 #include "common/streambuf.h"
 #include "common/utils.h"
@@ -232,8 +235,11 @@ static bool lineSent[SPEKTRUM_SRXL_DEVICE_TEXTGEN_ROWS];
 int spektrumTmTextGenPutChar(uint8_t col, uint8_t row, char c)
 {
     if (row < SPEKTRUM_SRXL_TEXTGEN_BUFFER_ROWS && col < SPEKTRUM_SRXL_TEXTGEN_BUFFER_COLS) {
-        srxlTextBuff[row][col] = c;
-        lineSent[row] = false;
+      // Only update and force a tm transmision if something has actually changed.
+        if (srxlTextBuff[row][col] != c) {
+          srxlTextBuff[row][col] = c;
+          lineSent[row] = false;
+        }
     }
     return 0;
 }
@@ -358,15 +364,15 @@ static void convertVtxTmData(spektrumVtx_t * vtx)
 /*
 typedef struct
 {
-    UINT8       identifier;
-    UINT8       sID;      // Secondary ID
-    UINT8       band;     // VTX Band (0 = Fatshark, 1 = Raceband, 2 = E, 3 = B, 4 = A, 5-7 = Reserved)
-    UINT8       channel;  // VTX Channel (0-7)
-    UINT8       pit;      // Pit/Race mode (0 = Race, 1 = Pit). Race = (normal operating) mode. Pit = (reduced power) mode. When PIT is set, it overrides all other power settings
-    UINT8       power;    // VTX Power (0 = Off, 1 = 1mw to 14mW, 2 = 15mW to 25mW, 3 = 26mW to 99mW, 4 = 100mW to 299mW, 5 = 300mW to 600mW, 6 = 601mW+, 7 = manual control)
-    UINT16      powerDec; // VTX Power as a decimal 1mw/unit
-    UINT8       region;   // Region (0 = USA, 1 = EU, 0xFF = N/A)
-    UINT8       rfu[7];   // reserved
+    UINT8		identifier;
+    UINT8		sID;	  // Secondary ID
+    UINT8		band;	  // VTX Band (0 = Fatshark, 1 = Raceband, 2 = E, 3 = B, 4 = A, 5-7 = Reserved)
+    UINT8		channel;  // VTX Channel (0-7)
+    UINT8		pit;	  // Pit/Race mode (0 = Race, 1 = Pit). Race = (normal operating) mode. Pit = (reduced power) mode. When PIT is set, it overrides all other power settings
+    UINT8		power;	  // VTX Power (0 = Off, 1 = 1mw to 14mW, 2 = 15mW to 25mW, 3 = 26mW to 99mW, 4 = 100mW to 299mW, 5 = 300mW to 600mW, 6 = 601mW+, 7 = manual control)
+    UINT16		powerDec; // VTX Power as a decimal 1mw/unit
+    UINT8		region;	  // Region (0 = USA, 1 = EU, 0xFF = N/A)
+    UINT8		rfu[7];	  // reserved
 } STRU_TELE_VTX;
 */
 
@@ -448,6 +454,7 @@ const srxlScheduleFnPtr srxlScheduleFuncs[SRXL_TOTAL_COUNT] = {
 #endif
 };
 
+
 static void processSrxl(timeUs_t currentTimeUs)
 {
     static uint8_t srxlScheduleIndex = 0;
@@ -462,6 +469,16 @@ static void processSrxl(timeUs_t currentTimeUs)
     } else {
         srxlFnPtr = srxlScheduleFuncs[srxlScheduleIndex + srxlScheduleUserIndex];
         srxlScheduleUserIndex = (srxlScheduleUserIndex + 1) % SRXL_SCHEDULE_USER_COUNT;
+
+#if defined (USE_SPEKTRUM_CMS_TELEMETRY) && defined (USE_CMS)
+        // Boost CMS performance by sending nothing else but CMS Text frames when in a CMS menu.
+        // Sideeffect, all other reports are still not sent if user leaves CMS without a proper EXIT.
+        if (cmsInMenu &&
+            (pCurrentDisplay == &srxlDisplayPort)) {
+            srxlFnPtr = srxlFrameText;
+        }
+#endif
+
     }
 
     if (srxlFnPtr) {
