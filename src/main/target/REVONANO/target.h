@@ -84,6 +84,8 @@
 #define VBAT_ADC_PIN            PA6
 #define RSSI_ADC_PIN            PA5
 
+#define USE_SERIAL_4WAY_BLHELI_INTERFACE
+
 #define TARGET_IO_PORTA         0xffff
 #define TARGET_IO_PORTB         0xffff
 #define TARGET_IO_PORTC         (BIT(13) | BIT(14) | BIT(15))
