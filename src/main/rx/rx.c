@@ -434,6 +434,7 @@ bool rxUpdateCheck(timeUs_t currentTimeUs, timeDelta_t currentDeltaTime)
             	setRssiUnfiltered(RSSI_MAX_VALUE, RSSI_SOURCE_FRAME_ERRORS);
             }
 	} else if (cmpTimeUs(currentTimeUs, rxNextUpdateAtUs) > 0) {
+    } else if (cmpTimeUs(currentTimeUs, rxNextUpdateAtUs) > 0) {
             rxDataProcessingRequired = true;
         }
 
