@@ -76,6 +76,7 @@ typedef enum {
     TABLE_RATES_TYPE,
 #ifdef USE_OVERCLOCK
     TABLE_OVERCLOCK,
+#endif
 #ifdef USE_LED_STRIP
     TABLE_RGB_GRB,
 #endif
