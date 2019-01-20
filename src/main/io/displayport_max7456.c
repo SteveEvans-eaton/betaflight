@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -33,7 +34,6 @@
 
 #include "io/displayport_max7456.h"
 #include "io/osd.h"
-#include "io/osd_slave.h"
 
 #include "pg/max7456.h"
 #include "pg/pg.h"
@@ -165,12 +165,14 @@ static const displayPortVTable_t max7456VTable = {
 
 displayPort_t *max7456DisplayPortInit(const vcdProfile_t *vcdProfile)
 {
+    if (
+        !max7456Init(max7456Config(), vcdProfile, systemConfig()->cpu_overclock)
+    ) {
+        return NULL;
+    }
+
     displayInit(&max7456DisplayPort, &max7456VTable);
-#ifdef USE_OSD_SLAVE
-    max7456Init(max7456Config(), vcdProfile, false);
-#else
-    max7456Init(max7456Config(), vcdProfile, systemConfig()->cpu_overclock);
-#endif
+
     resync(&max7456DisplayPort);
     return &max7456DisplayPort;
 }

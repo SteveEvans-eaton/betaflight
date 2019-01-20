@@ -1,31 +1,38 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-
-
 #pragma once
 
-//#define USE_TARGET_CONFIG
+#define USE_TARGET_CONFIG
 
+#ifdef KAKUTEF7V2
+#define TARGET_BOARD_IDENTIFIER "KT76"
+#else
 #define TARGET_BOARD_IDENTIFIER "KTF7"
+#endif
+
+#ifdef KAKUTEF7V2
+#define USBD_PRODUCT_STRING "KakuteF7-V2"
+#else
 #define USBD_PRODUCT_STRING "KakuteF7"
+#endif
 
 #define LED0_PIN                PA2
 
@@ -33,41 +40,24 @@
 #define BEEPER_PIN              PD15
 #define BEEPER_INVERTED
 
+//define camera control
+#define CAMERA_CONTROL_PIN      PE13
+
 #define USE_ACC
 #define USE_GYRO
-#define USE_DUAL_GYRO
+#define USE_EXTI
 
 // ICM-20689
 #define USE_ACC_SPI_ICM20689
 #define USE_GYRO_SPI_ICM20689
-#define GYRO_ICM20689_ALIGN      CW270_DEG
-#define ACC_ICM20689_ALIGN       CW270_DEG
-//#define MPU_INT_EXTI               PE1
+#define GYRO_1_CS_PIN           SPI4_NSS_PIN
+#define GYRO_1_SPI_INSTANCE     SPI4
+#define GYRO_1_ALIGN            CW270_DEG
+#define ACC_1_ALIGN             CW270_DEG
 
-// MPU6000
-#define USE_ACC_SPI_MPU6000
-#define USE_GYRO_SPI_MPU6000
-#define GYRO_MPU6000_ALIGN       CW270_DEG
-#define ACC_MPU6000_ALIGN        CW270_DEG
-//#define MPU_INT_EXTI                PB9
-
-#define ICM20689_CS_PIN          SPI4_NSS_PIN
-#define ICM20689_SPI_INSTANCE    SPI4
-#define MPU6000_CS_PIN           SPI3_NSS_PIN
-#define MPU6000_SPI_INSTANCE     SPI3
-#define GYRO_1_CS_PIN            ICM20689_CS_PIN
-#define GYRO_2_CS_PIN            MPU6000_CS_PIN
-#define GYRO_1_SPI_INSTANCE      ICM20689_SPI_INSTANCE
-#define GYRO_2_SPI_INSTANCE      MPU6000_SPI_INSTANCE
-
-#define ACC_1_ALIGN              ACC_ICM20689_ALIGN
-#define ACC_2_ALIGN              ACC_MPU6000_ALIGN
-#define GYRO_1_ALIGN             GYRO_ICM20689_ALIGN
-#define GYRO_2_ALIGN             GYRO_MPU6000_ALIGN
-
-//#define USE_MPU_DATA_READY_SIGNAL
-
-#define USE_EXTI
+#define USE_GYRO_EXTI
+#define GYRO_1_EXTI_PIN         PE1
+#define USE_MPU_DATA_READY_SIGNAL
 
 #define USE_VCP
 #define USE_USB_DETECT
@@ -109,7 +99,6 @@
 #define USE_SPI
 #define USE_SPI_DEVICE_1   //SD Card
 #define USE_SPI_DEVICE_2   //OSD
-#define USE_SPI_DEVICE_3   //MPU6000
 #define USE_SPI_DEVICE_4   //ICM20689
 
 #define SPI1_NSS_PIN            PA4
@@ -122,16 +111,10 @@
 #define SPI2_MISO_PIN           PB14
 #define SPI2_MOSI_PIN           PB15
 
-#define SPI3_NSS_PIN            PA15
-#define SPI3_SCK_PIN            PB3
-#define SPI3_MISO_PIN           PB4
-#define SPI3_MOSI_PIN           PB5
-
 #define SPI4_NSS_PIN            PE4
 #define SPI4_SCK_PIN            PE2
 #define SPI4_MISO_PIN           PE5
 #define SPI4_MOSI_PIN           PE6
-
 
 #define USE_MAX7456
 #define MAX7456_SPI_INSTANCE    SPI2
@@ -140,18 +123,12 @@
 #define MAX7456_RESTORE_CLK     (SPI_CLOCK_FAST)
 
 #define USE_SDCARD
+#define USE_SDCARD_SPI
 #define SDCARD_DETECT_INVERTED
 #define SDCARD_DETECT_PIN                   PD8
-
 #define SDCARD_SPI_INSTANCE                 SPI1
 #define SDCARD_SPI_CS_PIN                   SPI1_NSS_PIN
-
-#define SDCARD_SPI_INITIALIZATION_CLOCK_DIVIDER 256 // 422kHz
-
-#define SDCARD_SPI_FULL_SPEED_CLOCK_DIVIDER      8 // 27MHz
-
-#define SDCARD_DMA_STREAM_TX_FULL             DMA2_Stream5
-#define SDCARD_DMA_CHANNEL                    3
+#define SPI1_TX_DMA_OPT                       1     // DMA 2 Stream 5 Channel 3
 
 #define USE_I2C
 #define USE_I2C_DEVICE_1
@@ -166,9 +143,8 @@
 #define USE_MAG
 #define USE_MAG_HMC5883
 #define USE_MAG_QMC5883
+#define USE_MAG_LIS3MDL
 #define MAG_I2C_INSTANCE      I2C_DEVICE
-
-#define SENSORS_SET (SENSOR_ACC | SENSOR_BARO)
 
 #define DEFAULT_VOLTAGE_METER_SOURCE VOLTAGE_METER_ADC
 #define DEFAULT_CURRENT_METER_SOURCE CURRENT_METER_ADC
@@ -184,9 +160,6 @@
 #define DEFAULT_RX_FEATURE      FEATURE_RX_SERIAL
 #define SERIALRX_UART           SERIAL_PORT_USART6
 #define SERIALRX_PROVIDER       SERIALRX_SBUS
-#define ESC_SENSOR_UART         SERIAL_PORT_USART7
-
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 #define TARGET_IO_PORTA 0xffff
 #define TARGET_IO_PORTB 0xffff
@@ -197,4 +170,3 @@
 #define USABLE_TIMER_CHANNEL_COUNT 8
 
 #define USED_TIMERS  ( TIM_N(1) | TIM_N(5) | TIM_N(3) | TIM_N(4) | TIM_N(8) )
-

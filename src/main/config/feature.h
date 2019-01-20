@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #pragma once
 
 #include "pg/pg.h"
@@ -61,14 +62,11 @@ typedef struct featureConfig_s {
 
 PG_DECLARE(featureConfig_t, featureConfig);
 
-void latchActiveFeatures(void);
-bool featureConfigured(uint32_t mask);
-bool feature(uint32_t mask);
-void featureSet(uint32_t mask);
-void featureClear(uint32_t mask);
-void featureClearAll(void);
+bool featureIsEnabled(const uint32_t mask);
+void featureEnable(const uint32_t mask);
+void featureDisable(const uint32_t mask);
+void featureDisableAll(void);
 uint32_t featureMask(void);
 
-void intFeatureClearAll(uint32_t *features);
-void intFeatureSet(uint32_t mask, uint32_t *features);
-void intFeatureClear(uint32_t mask, uint32_t *features);
+void featureSet(const uint32_t mask, uint32_t *features);
+void featureClear(const uint32_t mask, uint32_t *features);

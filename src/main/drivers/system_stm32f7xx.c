@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include <string.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -28,6 +29,9 @@
 #include "drivers/exti.h"
 #include "drivers/nvic.h"
 #include "drivers/system.h"
+#include "drivers/persistent.h"
+
+#include "stm32f7xx_ll_cortex.h"
 
 
 #define AIRCR_VECTKEY_MASK    ((uint32_t)0x05FA0000)
@@ -35,22 +39,13 @@ void SystemClock_Config(void);
 
 void systemReset(void)
 {
-    if (mpuResetFn) {
-        mpuResetFn();
-    }
-
     __disable_irq();
     NVIC_SystemReset();
 }
 
 void systemResetToBootloader(void)
 {
-    if (mpuResetFn) {
-        mpuResetFn();
-    }
-
-    (*(__IO uint32_t *) (BKPSRAM_BASE + 4)) = 0xDEADBEEF;   // flag that will be readable after reboot
-
+    persistentObjectWrite(PERSISTENT_OBJECT_BOOTMODE_REQUEST, BOOTLOADER_REQUEST_COOKIE);
     __disable_irq();
     NVIC_SystemReset();
 }
@@ -161,6 +156,10 @@ void systemInit(void)
 {
     checkForBootLoaderRequest();
 
+    //  Mark ITCM-RAM as read-only
+    LL_MPU_ConfigRegion(LL_MPU_REGION_NUMBER0, 0, RAMITCM_BASE, LL_MPU_REGION_SIZE_16KB | LL_MPU_REGION_PRIV_RO_URO);
+    LL_MPU_Enable(LL_MPU_CTRL_PRIVILEGED_DEFAULT);
+
     //SystemClock_Config();
 
     // Configure NVIC preempt/priority groups
@@ -189,27 +188,27 @@ void systemInit(void)
 }
 
 void(*bootJump)(void);
+
 void checkForBootLoaderRequest(void)
 {
-    uint32_t bt;
-    __PWR_CLK_ENABLE();
-    __BKPSRAM_CLK_ENABLE();
-    HAL_PWR_EnableBkUpAccess();
+    uint32_t bootloaderRequest = persistentObjectRead(PERSISTENT_OBJECT_BOOTMODE_REQUEST);
 
-    bt = (*(__IO uint32_t *) (BKPSRAM_BASE + 4)) ;
-    if ( bt == 0xDEADBEEF ) {
-        (*(__IO uint32_t *) (BKPSRAM_BASE + 4)) =  0xCAFEFEED; // Reset our trigger
-        // Backup SRAM is write-back by default, ensure value actually reaches memory
-        // Another solution would be marking BKPSRAM as write-through in Memory Protection Unit settings
-        SCB_CleanDCache_by_Addr((uint32_t *) (BKPSRAM_BASE + 4), sizeof(uint32_t));
-
-        void (*SysMemBootJump)(void);
-        __SYSCFG_CLK_ENABLE();
-        SYSCFG->MEMRMP |= SYSCFG_MEM_BOOT_ADD0 ;
-        uint32_t p =  (*((uint32_t *) 0x1ff00000));
-        __set_MSP(p); //Set the main stack pointer to its defualt values
-        SysMemBootJump = (void (*)(void)) (*((uint32_t *) 0x1ff00004)); // Point the PC to the System Memory reset vector (+4)
-        SysMemBootJump();
-        while (1);
+    if (bootloaderRequest != BOOTLOADER_REQUEST_COOKIE) {
+        return;
     }
+    persistentObjectWrite(PERSISTENT_OBJECT_BOOTMODE_REQUEST, 0);
+
+    void (*SysMemBootJump)(void);
+
+    __SYSCFG_CLK_ENABLE();
+    SYSCFG->MEMRMP |= SYSCFG_MEM_BOOT_ADD0 ;
+
+    uint32_t p =  (*((uint32_t *) 0x1ff00000));
+
+    __set_MSP(p); //Set the main stack pointer to its default values
+
+    SysMemBootJump = (void (*)(void)) (*((uint32_t *) 0x1ff00004)); // Point the PC to the System Memory reset vector (+4)
+    SysMemBootJump();
+
+    while (1);
 }

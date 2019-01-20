@@ -1,20 +1,20 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
@@ -105,7 +105,7 @@ void mpu6000SpiGyroInit(gyroDev_t *gyro)
 
     mpu6000AccAndGyroInit(gyro);
 
-    spiSetDivisor(gyro->bus.busdev_u.spi.instance, SPI_CLOCK_INITIALIZATON);
+    spiSetDivisor(gyro->bus.busdev_u.spi.instance, SPI_CLOCK_INITIALIZATION);
 
     // Accel and Gyro DLPF Setting
     spiBusWriteRegister(&gyro->bus, MPU6000_CONFIG, mpuGyroDLPF(gyro));
@@ -127,13 +127,8 @@ void mpu6000SpiAccInit(accDev_t *acc)
 
 uint8_t mpu6000SpiDetect(const busDevice_t *bus)
 {
-#ifndef USE_DUAL_GYRO
-    IOInit(bus->busdev_u.spi.csnPin, OWNER_MPU_CS, 0);
-    IOConfigGPIO(bus->busdev_u.spi.csnPin, SPI_IO_CS_CFG);
-    IOHi(bus->busdev_u.spi.csnPin);
-#endif
 
-    spiSetDivisor(bus->busdev_u.spi.instance, SPI_CLOCK_INITIALIZATON);
+    spiSetDivisor(bus->busdev_u.spi.instance, SPI_CLOCK_INITIALIZATION);
 
     spiBusWriteRegister(bus, MPU_RA_PWR_MGMT_1, BIT_H_RESET);
 
@@ -180,7 +175,7 @@ static void mpu6000AccAndGyroInit(gyroDev_t *gyro)
         return;
     }
 
-    spiSetDivisor(gyro->bus.busdev_u.spi.instance, SPI_CLOCK_INITIALIZATON);
+    spiSetDivisor(gyro->bus.busdev_u.spi.instance, SPI_CLOCK_INITIALIZATION);
 
     // Device Reset
     spiBusWriteRegister(&gyro->bus, MPU_RA_PWR_MGMT_1, BIT_H_RESET);

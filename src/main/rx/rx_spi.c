@@ -1,26 +1,27 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <platform.h>
+#include "platform.h"
 
 #ifdef USE_RX_SPI
 
@@ -35,7 +36,8 @@
 
 #include "fc/config.h"
 
-#include "rx/rx.h"
+#include "pg/rx_spi.h"
+
 #include "rx/rx_spi.h"
 #include "rx/cc2500_frsky_common.h"
 #include "rx/nrf24_cx10.h"
@@ -44,14 +46,16 @@
 #include "rx/nrf24_h8_3d.h"
 #include "rx/nrf24_inav.h"
 #include "rx/nrf24_kn.h"
-#include "rx/flysky.h"
+#include "rx/a7105_flysky.h"
+#include "rx/cc2500_sfhss.h"
+#include "rx/cyrf6936_spektrum.h"
 
 
 uint16_t rxSpiRcData[MAX_SUPPORTED_RC_CHANNEL_COUNT];
 STATIC_UNIT_TESTED uint8_t rxSpiPayload[RX_SPI_MAX_PAYLOAD_SIZE];
 STATIC_UNIT_TESTED uint8_t rxSpiNewPacketAvailable; // set true when a new packet is received
 
-typedef bool (*protocolInitFnPtr)(const rxConfig_t *rxConfig, rxRuntimeConfig_t *rxRuntimeConfig);
+typedef bool (*protocolInitFnPtr)(const rxSpiConfig_t *rxSpiConfig, rxRuntimeConfig_t *rxRuntimeConfig);
 typedef rx_spi_received_e (*protocolDataReceivedFnPtr)(uint8_t *payload);
 typedef void (*protocolSetRcDataFromPayloadFnPtr)(uint16_t *rcData, const uint8_t *payload);
 
@@ -61,7 +65,7 @@ static protocolSetRcDataFromPayloadFnPtr protocolSetRcDataFromPayload;
 
 STATIC_UNIT_TESTED uint16_t rxSpiReadRawRC(const rxRuntimeConfig_t *rxRuntimeConfig, uint8_t channel)
 {
-    BUILD_BUG_ON(NRF24L01_MAX_PAYLOAD_SIZE > RX_SPI_MAX_PAYLOAD_SIZE);
+    STATIC_ASSERT(NRF24L01_MAX_PAYLOAD_SIZE <= RX_SPI_MAX_PAYLOAD_SIZE, NRF24L01_MAX_PAYLOAD_SIZE_larger_than_RX_SPI_MAX_PAYLOAD_SIZE);
 
     if (channel >= rxRuntimeConfig->channelCount) {
         return 0;
@@ -128,6 +132,7 @@ STATIC_UNIT_TESTED bool rxSpiSetProtocol(rx_spi_protocol_e protocol)
 #endif
 #if defined(USE_RX_FRSKY_SPI_X)
     case RX_SPI_FRSKY_X:
+    case RX_SPI_FRSKY_X_LBT:
 #endif
         protocolInit = frSkySpiInit;
         protocolDataReceived = frSkySpiDataReceived;
@@ -141,6 +146,20 @@ STATIC_UNIT_TESTED bool rxSpiSetProtocol(rx_spi_protocol_e protocol)
         protocolInit = flySkyInit;
         protocolDataReceived = flySkyDataReceived;
         protocolSetRcDataFromPayload = flySkySetRcDataFromPayload;
+        break;
+#endif
+#ifdef USE_RX_SFHSS_SPI
+    case RX_SPI_SFHSS:
+        protocolInit = sfhssSpiInit;
+        protocolDataReceived = sfhssSpiDataReceived;
+        protocolSetRcDataFromPayload = sfhssSpiSetRcData;
+        break;
+#endif
+#ifdef USE_RX_SPEKTRUM
+    case RX_SPI_CYRF6936_DSM:
+        protocolInit = spektrumSpiInit;
+        protocolDataReceived = spektrumSpiDataReceived;
+        protocolSetRcDataFromPayload = spektrumSpiSetRcDataFromPayload;
         break;
 #endif
     }
@@ -166,14 +185,16 @@ static uint8_t rxSpiFrameStatus(rxRuntimeConfig_t *rxRuntimeConfig)
 /*
  * Set and initialize the RX protocol
  */
-bool rxSpiInit(const rxConfig_t *rxConfig, rxRuntimeConfig_t *rxRuntimeConfig)
+bool rxSpiInit(const rxSpiConfig_t *rxSpiConfig, rxRuntimeConfig_t *rxRuntimeConfig)
 {
     bool ret = false;
 
-    const rx_spi_type_e spiType = feature(FEATURE_SOFTSPI) ? RX_SPI_SOFTSPI : RX_SPI_HARDSPI;
-    rxSpiDeviceInit(spiType);
-    if (rxSpiSetProtocol(rxConfig->rx_spi_protocol)) {
-        ret = protocolInit(rxConfig, rxRuntimeConfig);
+    if (!rxSpiDeviceInit(rxSpiConfig)) {
+        return false;
+    }
+
+    if (rxSpiSetProtocol(rxSpiConfig->rx_spi_protocol)) {
+        ret = protocolInit(rxSpiConfig, rxRuntimeConfig);
     }
     rxSpiNewPacketAvailable = false;
     rxRuntimeConfig->rxRefreshRate = 20000;

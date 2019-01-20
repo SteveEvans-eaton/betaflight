@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 /*
  * This target is for the Crazyflie 2.0 nanocopter board
  *
@@ -36,11 +37,11 @@
 #define USBD_PRODUCT_STRING     "Crazyflie 2.0"
 #endif
 
-#define USABLE_TIMER_CHANNEL_COUNT 14
-
 #if defined(CRAZYFLIE2BQ)
+#define USABLE_TIMER_CHANNEL_COUNT 5
 #define USED_TIMERS             ( TIM_N(2) | TIM_N(3) | TIM_N(14) )
 #else
+#define USABLE_TIMER_CHANNEL_COUNT 4
 #define USED_TIMERS             ( TIM_N(2) | TIM_N(4) )
 #endif
 
@@ -81,17 +82,20 @@
 #define USE_I2C_DEVICE_3
 #define I2C_DEVICE              (I2CDEV_3)
 
+// This board only uses I2C acc/gyro
+#undef USE_MULTI_GYRO
+
 // MPU9250 has the AD0 pin held high so the
 // address is 0x69 instead of the default 0x68
 #define MPU_ADDRESS             0x69
 
 #define USE_GYRO
 #define USE_GYRO_MPU6500
-#define GYRO_MPU6500_ALIGN      CW270_DEG
+#define GYRO_1_ALIGN            CW270_DEG
 
 #define USE_ACC
 #define USE_ACC_MPU6500
-#define ACC_MPU6500_ALIGN       CW270_DEG
+#define ACC_1_ALIGN             CW270_DEG
 
 #define USE_MAG
 #define USE_MPU9250_MAG // Enables bypass configuration on the MPU9250 I2C bus
@@ -99,7 +103,8 @@
 #define MAG_AK8963_ALIGN        CW270_DEG
 
 #define USE_EXTI
-#define MPU_INT_EXTI            PC13
+#define USE_GYRO_EXTI
+#define GYRO_1_EXTI_PIN         PC13
 
 #define USE_SERIALRX_TARGET_CUSTOM
 #define SERIALRX_UART           SERIAL_PORT_USART6
@@ -113,7 +118,6 @@
 #endif
 
 #if defined(CRAZYFLIE2BQ)
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 #define USE_BEEPER
 #define BEEPER_PIN              PC12
@@ -122,6 +126,7 @@
 #define DEFAULT_CURRENT_METER_SOURCE CURRENT_METER_ADC
 #define USE_ADC
 #define ADC_INSTANCE            ADC1
+#define ADC1_DMA_OPT            1  // DMA 2 Stream 4 Channel 0 (compat default)
 #define CURRENT_METER_ADC_PIN   PA5
 #define VBAT_ADC_PIN            PA6
 #else

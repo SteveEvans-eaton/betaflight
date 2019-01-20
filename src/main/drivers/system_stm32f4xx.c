@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -26,6 +27,7 @@
 #include "drivers/exti.h"
 #include "drivers/nvic.h"
 #include "drivers/system.h"
+#include "drivers/persistent.h"
 
 
 #define AIRCR_VECTKEY_MASK    ((uint32_t)0x05FA0000)
@@ -33,24 +35,13 @@ void SetSysClock(void);
 
 void systemReset(void)
 {
-    if (mpuResetFn) {
-        mpuResetFn();
-    }
-
     __disable_irq();
     NVIC_SystemReset();
 }
 
-PERSISTENT uint32_t bootloaderRequest = 0;
-#define BOOTLOADER_REQUEST_COOKIE 0xDEADBEEF
-
 void systemResetToBootloader(void)
 {
-    if (mpuResetFn) {
-        mpuResetFn();
-    }
-
-    bootloaderRequest = BOOTLOADER_REQUEST_COOKIE;
+    persistentObjectWrite(PERSISTENT_OBJECT_BOOTMODE_REQUEST, BOOTLOADER_REQUEST_COOKIE);
 
     __disable_irq();
     NVIC_SystemReset();
@@ -65,11 +56,12 @@ typedef struct isrVector_s {
 
 void checkForBootLoaderRequest(void)
 {
+    uint32_t bootloaderRequest = persistentObjectRead(PERSISTENT_OBJECT_BOOTMODE_REQUEST);
+
     if (bootloaderRequest != BOOTLOADER_REQUEST_COOKIE) {
         return;
     }
-
-    bootloaderRequest = 0;
+    persistentObjectWrite(PERSISTENT_OBJECT_BOOTMODE_REQUEST, 0);
 
     extern isrVector_t system_isr_vector_table_base;
 
@@ -195,9 +187,12 @@ void systemInit(void)
     // cache RCC->CSR value to use it in isMPUSoftReset() and others
     cachedRccCsrValue = RCC->CSR;
 
-    /* Accounts for OP Bootloader, set the Vector Table base address as specified in .ld file */
-    extern void *isr_vector_table_base;
+    // Although VTOR is already loaded with a possible vector table in RAM,
+    // removing the call to NVIC_SetVectorTable causes USB not to become active,
+
+    extern uint8_t isr_vector_table_base;
     NVIC_SetVectorTable((uint32_t)&isr_vector_table_base, 0x0);
+
     RCC_AHB2PeriphClockCmd(RCC_AHB2Periph_OTG_FS, DISABLE);
 
     RCC_ClearFlag();

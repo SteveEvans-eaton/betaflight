@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -40,11 +41,12 @@
 
 static mspPort_t mspPorts[MAX_MSP_PORT_COUNT];
 
-static void resetMspPort(mspPort_t *mspPortToReset, serialPort_t *serialPort)
+static void resetMspPort(mspPort_t *mspPortToReset, serialPort_t *serialPort, bool sharedWithTelemetry)
 {
     memset(mspPortToReset, 0, sizeof(mspPort_t));
 
     mspPortToReset->port = serialPort;
+    mspPortToReset->sharedWithTelemetry = sharedWithTelemetry;
 }
 
 void mspSerialAllocatePorts(void)
@@ -60,7 +62,8 @@ void mspSerialAllocatePorts(void)
 
         serialPort_t *serialPort = openSerialPort(portConfig->identifier, FUNCTION_MSP, NULL, NULL, baudRates[portConfig->msp_baudrateIndex], MODE_RXTX, SERIAL_NOT_INVERTED);
         if (serialPort) {
-            resetMspPort(mspPort, serialPort);
+            bool sharedWithTelemetry = isSerialPortShared(portConfig, FUNCTION_MSP, TELEMETRY_PORT_FUNCTIONS_MASK);
+            resetMspPort(mspPort, serialPort, sharedWithTelemetry);
             portIndex++;
         }
 
@@ -79,13 +82,24 @@ void mspSerialReleasePortIfAllocated(serialPort_t *serialPort)
     }
 }
 
+#if defined(USE_TELEMETRY)
+void mspSerialReleaseSharedTelemetryPorts(void) {
+    for (uint8_t portIndex = 0; portIndex < MAX_MSP_PORT_COUNT; portIndex++) {
+        mspPort_t *candidateMspPort = &mspPorts[portIndex];
+        if (candidateMspPort->sharedWithTelemetry) {
+            closeSerialPort(candidateMspPort->port);
+            memset(candidateMspPort, 0, sizeof(mspPort_t));
+        }
+    }
+}
+#endif
+
 static bool mspSerialProcessReceivedData(mspPort_t *mspPort, uint8_t c)
 {
     switch (mspPort->c_state) {
         default:
         case MSP_IDLE:      // Waiting for '$' character
             if (c == '$') {
-                mspPort->mspVersion = MSP_V1;
                 mspPort->c_state = MSP_HEADER_START;
             }
             else {
@@ -94,12 +108,17 @@ static bool mspSerialProcessReceivedData(mspPort_t *mspPort, uint8_t c)
             break;
 
         case MSP_HEADER_START:  // Waiting for 'M' (MSPv1 / MSPv2_over_v1) or 'X' (MSPv2 native)
+            mspPort->offset = 0;
+            mspPort->checksum1 = 0;
+            mspPort->checksum2 = 0;
             switch (c) {
                 case 'M':
                     mspPort->c_state = MSP_HEADER_M;
+                    mspPort->mspVersion = MSP_V1;
                     break;
                 case 'X':
                     mspPort->c_state = MSP_HEADER_X;
+                    mspPort->mspVersion = MSP_V2_NATIVE;
                     break;
                 default:
                     mspPort->c_state = MSP_IDLE;
@@ -107,27 +126,33 @@ static bool mspSerialProcessReceivedData(mspPort_t *mspPort, uint8_t c)
             }
             break;
 
-        case MSP_HEADER_M:      // Waiting for '<'
-            if (c == '<') {
-                mspPort->offset = 0;
-                mspPort->checksum1 = 0;
-                mspPort->checksum2 = 0;
-                mspPort->c_state = MSP_HEADER_V1;
-            }
-            else {
-                mspPort->c_state = MSP_IDLE;
+        case MSP_HEADER_M:      // Waiting for '<' / '>'
+            mspPort->c_state = MSP_HEADER_V1;
+            switch (c) {
+                case '<':
+                    mspPort->packetType = MSP_PACKET_COMMAND;
+                    break;
+                case '>':
+                    mspPort->packetType = MSP_PACKET_REPLY;
+                    break;
+                default:
+                    mspPort->c_state = MSP_IDLE;
+                    break;
             }
             break;
 
         case MSP_HEADER_X:
-            if (c == '<') {
-                mspPort->offset = 0;
-                mspPort->checksum2 = 0;
-                mspPort->mspVersion = MSP_V2_NATIVE;
-                mspPort->c_state = MSP_HEADER_V2_NATIVE;
-            }
-            else {
-                mspPort->c_state = MSP_IDLE;
+            mspPort->c_state = MSP_HEADER_V2_NATIVE;
+            switch (c) {
+                case '<':
+                    mspPort->packetType = MSP_PACKET_COMMAND;
+                    break;
+                case '>':
+                    mspPort->packetType = MSP_PACKET_REPLY;
+                    break;
+                default:
+                    mspPort->c_state = MSP_IDLE;
+                    break;
             }
             break;
 

@@ -1,26 +1,26 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include <platform.h>
+#include "platform.h"
 #include "common/utils.h"
 
 // allow conditional definition of DMA related members
@@ -120,8 +120,8 @@
     IO_TAG(pin),                                                        \
     DEF_TIM_CHANNEL(CH_ ## chan),                                       \
     flags,                                                              \
-    (DEF_TIM_OUTPUT(CH_ ## chan) | out),                                \
-    DEF_TIM_DMA_COND(                                                   \
+    (DEF_TIM_OUTPUT(CH_ ## chan) | out)                                 \
+    DEF_TIM_DMA_COND(/* add comma */ ,                                  \
         DEF_TIM_DMA_CHANNEL(TCH_## tim ## _ ## chan),                   \
         DEF_TIM_DMA_HANDLER(TCH_## tim ## _ ## chan)                    \
     )                                                                   \
@@ -169,12 +169,12 @@
     DEF_TIM_CHANNEL(CH_ ## chan),                                       \
     flags,                                                              \
     (DEF_TIM_OUTPUT(CH_ ## chan) | out),                                \
-    DEF_TIM_AF(TCH_## tim ## _ ## chan, pin),                           \
-    DEF_TIM_DMA_COND(                                                   \
+    DEF_TIM_AF(TCH_## tim ## _ ## chan, pin)                            \
+    DEF_TIM_DMA_COND(/* add comma */ ,                                  \
         DEF_TIM_DMA_CHANNEL(TCH_## tim ## _ ## chan),                   \
         DEF_TIM_DMA_HANDLER(TCH_## tim ## _ ## chan)                    \
-    ),                                                                  \
-    DEF_TIM_DMA_COND(                                                   \
+    )                                                                   \
+    DEF_TIM_DMA_COND(/* add comma */ ,                                  \
         DEF_TIM_DMA_CHANNEL(TCH_## tim ## _UP),                         \
         DEF_TIM_DMA_HANDLER(TCH_## tim ## _UP)                          \
     )                                                                   \
@@ -386,13 +386,13 @@
     DEF_TIM_CHANNEL(CH_ ## chan),                               \
     flags,                                                      \
     (DEF_TIM_OUTPUT(CH_ ## chan) | out),                        \
-    DEF_TIM_AF(TIM_ ## tim),                                    \
-    DEF_TIM_DMA_COND(                                           \
+    DEF_TIM_AF(TIM_ ## tim)                                     \
+    DEF_TIM_DMA_COND(/* add comma */ ,                          \
         DEF_TIM_DMA_STREAM(dmaopt, TCH_## tim ## _ ## chan),    \
         DEF_TIM_DMA_CHANNEL(dmaopt, TCH_## tim ## _ ## chan),   \
         DEF_TIM_DMA_HANDLER(dmaopt, TCH_## tim ## _ ## chan)    \
-    ),                                                          \
-    DEF_TIM_DMA_COND(                                           \
+    )                                                           \
+    DEF_TIM_DMA_COND(/* add comma */ ,                          \
         DEF_TIM_DMA_STREAM(0, TCH_## tim ## _UP),               \
         DEF_TIM_DMA_CHANNEL(0, TCH_## tim ## _UP),              \
         DEF_TIM_DMA_HANDLER(0, TCH_## tim ## _UP)               \
@@ -492,13 +492,13 @@
     DEF_TIM_CHANNEL(CH_ ## chan),                                       \
     flags,                                                              \
     (DEF_TIM_OUTPUT(CH_ ## chan) | out),                                \
-    DEF_TIM_AF(TCH_## tim ## _ ## chan, pin),                           \
-    DEF_TIM_DMA_COND(                                                   \
+    DEF_TIM_AF(TCH_## tim ## _ ## chan, pin)                            \
+    DEF_TIM_DMA_COND(/* add comma */ ,                                  \
         DEF_TIM_DMA_STREAM(dmaopt, TCH_## tim ## _ ## chan),            \
         DEF_TIM_DMA_CHANNEL(dmaopt, TCH_## tim ## _ ## chan),           \
         DEF_TIM_DMA_HANDLER(dmaopt, TCH_## tim ## _ ## chan)            \
-    ),                                                                  \
-    DEF_TIM_DMA_COND(                                                   \
+    )                                                                   \
+    DEF_TIM_DMA_COND(/* add comma */ ,                                  \
         DEF_TIM_DMA_STREAM(0, TCH_## tim ## _UP),                       \
         DEF_TIM_DMA_CHANNEL(0, TCH_## tim ## _UP),                      \
         DEF_TIM_DMA_HANDLER(0, TCH_## tim ## _UP)                       \
@@ -553,9 +553,9 @@
 #define DEF_TIM_DMA__BTCH_TIM5_CH3    D(1, 0, 6)
 #define DEF_TIM_DMA__BTCH_TIM5_CH4    D(1, 1, 6),D(1, 3, 6)
 
-#define DEF_TIM_DMA__BTCH_TIM8_CH1    D(2, 2, 7),D(2, 2, 0)
-#define DEF_TIM_DMA__BTCH_TIM8_CH2    D(2, 3, 7),D(2, 2, 0)
-#define DEF_TIM_DMA__BTCH_TIM8_CH3    D(2, 4, 7),D(2, 2, 0)
+#define DEF_TIM_DMA__BTCH_TIM8_CH1    D(2, 2, 0),D(2, 2, 7)
+#define DEF_TIM_DMA__BTCH_TIM8_CH2    D(2, 2, 0),D(2, 3, 7)
+#define DEF_TIM_DMA__BTCH_TIM8_CH3    D(2, 2, 0),D(2, 4, 7)
 #define DEF_TIM_DMA__BTCH_TIM8_CH4    D(2, 7, 7)
 
 #define DEF_TIM_DMA__BTCH_TIM4_CH4    NONE
@@ -701,5 +701,27 @@
 #define DEF_TIM_AF__PI5__TCH_TIM8_CH1     D(3, 8)
 #define DEF_TIM_AF__PI6__TCH_TIM8_CH2     D(3, 8)
 #define DEF_TIM_AF__PI7__TCH_TIM8_CH3     D(3, 8)
+
+#endif
+
+#ifdef USE_TIMER_MGMT
+
+#if defined(STM32F7) || defined(STM32F4)
+
+#define USED_TIMERS ( TIM_N(1) | TIM_N(2) | TIM_N(3) | TIM_N(4) | TIM_N(5) | TIM_N(6) | TIM_N(7) | TIM_N(8) | TIM_N(9) | TIM_N(10) | TIM_N(11) | TIM_N(12) | TIM_N(13) | TIM_N(14) )
+
+#elif defined(STM32F3)
+
+#define USED_TIMERS ( TIM_N(1) | TIM_N(2) | TIM_N(3) | TIM_N(4) | TIM_N(5) | TIM_N(6) | TIM_N(7) | TIM_N(8) | TIM_N(15) | TIM_N(16) | TIM_N(17) )
+
+#elif defined(STM32F1)
+
+#define USED_TIMERS ( TIM_N(1) | TIM_N(2) | TIM_N(3) | TIM_N(4) )
+
+#else
+    #error "No timer / channel tag definition found for CPU"
+#endif
+
+#define TIMER_COUNT BITCOUNT(USED_TIMERS)
 
 #endif

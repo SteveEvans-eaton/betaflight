@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -60,9 +61,11 @@
 #define JEDEC_ID_MICRON_N25Q064        0x20BA17
 #define JEDEC_ID_MICRON_N25Q128        0x20ba18
 #define JEDEC_ID_WINBOND_W25Q16        0xEF4015
+#define JEDEC_ID_WINBOND_W25Q32        0xEF4016
 #define JEDEC_ID_WINBOND_W25Q64        0xEF4017
 #define JEDEC_ID_WINBOND_W25Q128       0xEF4018
 #define JEDEC_ID_CYPRESS_S25FL128L     0x016018
+#define JEDEC_ID_BERGMICRO_W25Q32      0xE04016
 
 // The timeout we expect between being able to issue page program instructions
 #define DEFAULT_TIMEOUT_MILLIS       6
@@ -77,6 +80,7 @@ STATIC_ASSERT(M25P16_PAGESIZE < FLASH_MAX_PAGE_SIZE, M25P16_PAGESIZE_too_small);
 
 const flashVTable_t m25p16_vTable;
 
+#ifndef USE_SPI_TRANSACTION
 static void m25p16_disable(busDevice_t *bus)
 {
     IOHi(bus->busdev_u.spi.csnPin);
@@ -88,12 +92,17 @@ static void m25p16_enable(busDevice_t *bus)
     __NOP();
     IOLo(bus->busdev_u.spi.csnPin);
 }
+#endif
 
 static void m25p16_transfer(busDevice_t *bus, const uint8_t *txData, uint8_t *rxData, int len)
 {
+#ifdef USE_SPI_TRANSACTION
+    spiBusTransactionTransfer(bus, txData, rxData, len);
+#else
     m25p16_enable(bus);
     spiTransfer(bus->busdev_u.spi.instance, txData, rxData, len);
     m25p16_disable(bus);
+#endif
 }
 
 /**
@@ -101,11 +110,13 @@ static void m25p16_transfer(busDevice_t *bus, const uint8_t *txData, uint8_t *rx
  */
 static void m25p16_performOneByteCommand(busDevice_t *bus, uint8_t command)
 {
+#ifdef USE_SPI_TRANSACTION
+    m25p16_transfer(bus, &command, NULL, 1);
+#else
     m25p16_enable(bus);
-
     spiTransferByte(bus->busdev_u.spi.instance, command);
-
     m25p16_disable(bus);
+#endif
 }
 
 /**
@@ -164,6 +175,11 @@ bool m25p16_detect(flashDevice_t *fdevice, uint32_t chipID)
         fdevice->geometry.sectors = 32;
         fdevice->geometry.pagesPerSector = 256;
         break;
+    case JEDEC_ID_BERGMICRO_W25Q32:
+        fdevice->geometry.sectors = 1024;
+        fdevice->geometry.pagesPerSector = 16;
+        break;
+    case JEDEC_ID_WINBOND_W25Q32:
     case JEDEC_ID_MACRONIX_MX25L3206E:
         fdevice->geometry.sectors = 64;
         fdevice->geometry.pagesPerSector = 256;
@@ -261,13 +277,20 @@ static void m25p16_pageProgramContinue(flashDevice_t *fdevice, const uint8_t *da
 
     m25p16_writeEnable(fdevice);
 
+#ifdef USE_SPI_TRANSACTION
+    spiBusTransactionBegin(fdevice->busdev);
+#else
     m25p16_enable(fdevice->busdev);
+#endif
 
     spiTransfer(fdevice->busdev->busdev_u.spi.instance, command, NULL, fdevice->isLargeFlash ? 5 : 4);
-
     spiTransfer(fdevice->busdev->busdev_u.spi.instance, data, NULL, length);
 
+#ifdef USE_SPI_TRANSACTION
+    spiBusTransactionEnd(fdevice->busdev);
+#else
     m25p16_disable(fdevice->busdev);
+#endif
 
     fdevice->currentWriteAddress += length;
 }
@@ -319,12 +342,20 @@ static int m25p16_readBytes(flashDevice_t *fdevice, uint32_t address, uint8_t *b
         return 0;
     }
 
+#ifdef USE_SPI_TRANSACTION
+    spiBusTransactionBegin(fdevice->busdev);
+#else
     m25p16_enable(fdevice->busdev);
+#endif
 
     spiTransfer(fdevice->busdev->busdev_u.spi.instance, command, NULL, fdevice->isLargeFlash ? 5 : 4);
     spiTransfer(fdevice->busdev->busdev_u.spi.instance, NULL, buffer, length);
 
+#ifdef USE_SPI_TRANSACTION
+    spiBusTransactionEnd(fdevice->busdev);
+#else
     m25p16_disable(fdevice->busdev);
+#endif
 
     return length;
 }

@@ -1,28 +1,29 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #pragma once
 
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <platform.h>
+#include "platform.h"
 
 #include "resource.h"
 
@@ -97,6 +98,14 @@
 # warning "Unknown TARGET"
 #endif
 
+#if defined(STM32F7)
+// Expose these for EXTIConfig
+#define IO_CONFIG_GET_MODE(cfg) (((cfg) >> 0) & 0x03)
+#define IO_CONFIG_GET_SPEED(cfg) (((cfg) >> 2) & 0x03)
+#define IO_CONFIG_GET_OTYPE(cfg) (((cfg) >> 4) & 0x01)
+#define IO_CONFIG_GET_PULL(cfg) (((cfg) >> 5) & 0x03)
+#endif
+
 // declare available IO pins. Available pins are specified per target
 #include "io_def.h"
 
@@ -109,6 +118,7 @@ void IOToggle(IO_t io);
 void IOInit(IO_t io, resourceOwner_e owner, uint8_t index);
 void IORelease(IO_t io);  // unimplemented
 resourceOwner_e IOGetOwner(IO_t io);
+bool IOIsFreeOrPreinit(IO_t io);
 IO_t IOGetByTag(ioTag_t tag);
 
 void IOConfigGPIO(IO_t io, ioConfig_t cfg);

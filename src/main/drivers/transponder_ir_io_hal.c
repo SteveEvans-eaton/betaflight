@@ -1,27 +1,28 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
-#include <platform.h>
+#include "platform.h"
 
 #ifdef USE_TRANSPONDER
 
@@ -63,7 +64,7 @@ void transponderIrHardwareInit(ioTag_t ioTag, transponder_t *transponder)
         return;
     }
 
-    const timerHardware_t *timerHardware = timerGetByTag(ioTag, TIM_USE_ANY);
+    const timerHardware_t *timerHardware = timerGetByTag(ioTag);
     TIM_TypeDef *timer = timerHardware->tim;
     timerChannel = timerHardware->channel;
 
@@ -192,14 +193,16 @@ bool isTransponderIrReady(void)
     return !transponderIrDataTransferInProgress;
 }
 
-static uint16_t dmaBufferOffset;
-
 void transponderIrWaitForTransmitComplete(void)
 {
+#ifdef DEBUG
     static uint32_t waitCounter = 0;
+#endif
 
     while (transponderIrDataTransferInProgress) {
+#ifdef DEBUG
         waitCounter++;
+#endif
     }
 }
 
@@ -255,8 +258,6 @@ void transponderIrDisable(void)
 void transponderIrTransmit(void)
 {
     transponderIrWaitForTransmitComplete();
-
-    dmaBufferOffset = 0;
 
     transponderIrDataTransferInProgress = 1;
     transponderIrDMAEnable(&transponder);

@@ -1,24 +1,22 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
-
-
 
 #pragma once
 
@@ -43,21 +41,19 @@
 #define USE_GYRO_SPI_MPU6500
 #define USE_GYRO_SPI_MPU6000
 
-#define MPU6500_CS_PIN          PB12
-#define MPU6500_SPI_INSTANCE    SPI2
-
-#define MPU6000_CS_PIN          PB12
-#define MPU6000_SPI_INSTANCE    SPI2
+#define GYRO_1_CS_PIN           PB12
+#define GYRO_1_SPI_INSTANCE     SPI2
 
 #define USE_EXTI
-#define MPU_INT_EXTI            PA8
+#define USE_GYRO_EXTI
+#define GYRO_1_EXTI_PIN         PA8
 #define USE_MPU_DATA_READY_SIGNAL
 
 #define USE_BARO
 #define USE_BARO_BMP280
 #define USE_BARO_SPI_BMP280
-#define BMP280_SPI_INSTANCE     SPI2
-#define BMP280_CS_PIN           PA9
+#define BARO_SPI_INSTANCE       SPI2
+#define BARO_CS_PIN             PA9
 
 #define USE_MAX7456
 #define MAX7456_SPI_INSTANCE    SPI2
@@ -88,7 +84,7 @@
 #define SERIAL_PORT_COUNT       5 //VCP, USART1, USART2, SOFTSERIAL1, SOFTSERIAL2
 
 #define USE_ESCSERIAL
-#define ESCSERIAL_TIMER_TX_HARDWARE 0 // PPM
+#define ESCSERIAL_TIMER_TX_PIN  PB10
 
 #define USE_SPI
 #define USE_SPI_DEVICE_1
@@ -103,8 +99,8 @@
 
 #define USE_FLASHFS
 #define USE_FLASH_M25P16
-#define M25P16_SPI_INSTANCE     SPI1
-#define M25P16_CS_PIN           PA15
+#define FLASH_SPI_INSTANCE      SPI1
+#define FLASH_CS_PIN            PA15
 #define ENABLE_BLACKBOX_LOGGING_ON_SPIFLASH_BY_DEFAULT
 
 #define USE_ADC
@@ -122,7 +118,6 @@
 #define SERIALRX_PROVIDER       SERIALRX_SBUS
 
 #define DEFAULT_FEATURES        (FEATURE_OSD | FEATURE_SOFTSERIAL | FEATURE_ESC_SENSOR)
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 #define TARGET_IO_PORTA (0xffff & ~(BIT(14)|BIT(13)))
 #define TARGET_IO_PORTB (0xffff & ~(BIT(2)|BIT(11)))

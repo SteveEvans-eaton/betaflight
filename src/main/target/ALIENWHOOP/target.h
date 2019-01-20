@@ -1,20 +1,20 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
@@ -48,7 +48,6 @@
 
 #define USE_TARGET_CONFIG // see config.c for target specific customizations
 
-#define CONFIG_FASTLOOP_PREFERRED_ACC ACC_DEFAULT
 #define BRUSHED_MOTORS
 
 /* Visual Alerts - SMD LEDs
@@ -114,34 +113,36 @@
 /* BLACKBOX dataflash available as of V2.1 -- did not exist on V1 and V2 */
 #define USE_FLASHFS
 #define USE_FLASH_M25P16
-#define M25P16_CS_PIN        SPI3_NSS_PIN
-#define M25P16_SPI_INSTANCE  SPI3
+#define FLASH_CS_PIN         SPI3_NSS_PIN
+#define FLASH_SPI_INSTANCE   SPI3
 #define ENABLE_BLACKBOX_LOGGING_ON_SPIFLASH_BY_DEFAULT
 
 /* Motion Processing Unit (MPU) - Invensense 6-axis MPU-6500 or 9-axis MPU-9250
  */
 // Interrupt
 #define USE_EXTI
-#define MPU_INT_EXTI            PC14
+#define USE_GYRO_EXTI
+#define GYRO_1_EXTI_PIN         PC14
 // MPU
-#define MPU6500_CS_PIN          SPI1_NSS_PIN
-#define MPU6500_SPI_INSTANCE    SPI1
+#define GYRO_1_CS_PIN           SPI1_NSS_PIN
+#define GYRO_1_SPI_INSTANCE     SPI1
 #define USE_MPU_DATA_READY_SIGNAL
 #define ENSURE_MPU_DATA_READY_IS_LOW
 // MAG
 #define USE_MAG
 #define USE_MAG_AK8963
+#define USE_MAG_LIS3MDL
 #define MAG_AK8963_ALIGN        CW0_DEG
 #define USE_MAG_DATA_READY_SIGNAL
 #define ENSURE_MAG_DATA_READY_IS_HIGH
 // GYRO
 #define USE_GYRO
 #define USE_GYRO_SPI_MPU6500
-#define GYRO_MPU6500_ALIGN      CW0_DEG
+#define GYRO_1_ALIGN            CW0_DEG
 // ACC
 #define USE_ACC
 #define USE_ACC_SPI_MPU6500
-#define ACC_MPU6500_ALIGN       CW0_DEG
+#define ACC_1_ALIGN             CW0_DEG
 
 /* Optional Digital Pressure Sensor (barometer) - Bosch BMP280
  * TODO: not implemented on V1 or V2 pcb
@@ -150,8 +151,8 @@
 #define USE_BARO
 #define USE_BARO_BMP280
 #define USE_BARO_SPI_BMP280
-#define BMP280_SPI_INSTANCE     SPI3
-#define BMP280_CS_PIN           SPI3_NSS_PIN
+#define BARO_SPI_INSTANCE       SPI3
+#define BARO_CS_PIN             SPI3_NSS_PIN
 #endif
 
 /* Serial ports etc.

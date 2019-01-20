@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #pragma once
 
 #include <stdbool.h>
@@ -24,6 +25,11 @@
 
 #include "drivers/io_types.h"
 #include "rcc_types.h"
+#include "drivers/timer_def.h"
+
+#define CC_CHANNELS_PER_TIMER         4 // TIM_Channel_1..4
+#define CC_INDEX_FROM_CHANNEL(x)      ((uint8_t)((x) >> 2))
+#define CC_CHANNEL_FROM_INDEX(x)      ((uint16_t)(x) << 2)
 
 typedef uint16_t captureCompare_t;        // 16 bit on both 103 and 303, just register access must be 32bit sometimes (use timCCR_t)
 
@@ -57,15 +63,16 @@ typedef uint32_t timCNT_t;
 #endif
 
 typedef enum {
-    TIM_USE_ANY           = 0x0,
-    TIM_USE_NONE          = 0x0,
-    TIM_USE_PPM           = 0x1,
-    TIM_USE_PWM           = 0x2,
-    TIM_USE_MOTOR         = 0x4,
-    TIM_USE_SERVO         = 0x8,
-    TIM_USE_LED           = 0x10,
-    TIM_USE_TRANSPONDER   = 0x20,
-    TIM_USE_BEEPER        = 0x40
+    TIM_USE_ANY            = 0x0,
+    TIM_USE_NONE           = 0x0,
+    TIM_USE_PPM            = 0x1,
+    TIM_USE_PWM            = 0x2,
+    TIM_USE_MOTOR          = 0x4,
+    TIM_USE_SERVO          = 0x8,
+    TIM_USE_LED            = 0x10,
+    TIM_USE_TRANSPONDER    = 0x20,
+    TIM_USE_BEEPER         = 0x40,
+    TIM_USE_CAMERA_CONTROL = 0x80,
 } timerUsageFlag_e;
 
 // use different types from capture and overflow - multiple overflow handlers are implemented as linked list
@@ -198,7 +205,8 @@ void configTimeBase(TIM_TypeDef *tim, uint16_t period, uint32_t hz);  // TODO - 
 rccPeriphTag_t timerRCC(TIM_TypeDef *tim);
 uint8_t timerInputIrq(TIM_TypeDef *tim);
 
-const timerHardware_t *timerGetByTag(ioTag_t tag, timerUsageFlag_e flag);
+const timerHardware_t *timerGetByTag(ioTag_t ioTag);
+ioTag_t timerioTagGetByUsage(timerUsageFlag_e usageFlag, uint8_t index);
 
 #if defined(USE_HAL_DRIVER)
 TIM_HandleTypeDef* timerFindTimerHandle(TIM_TypeDef *tim);

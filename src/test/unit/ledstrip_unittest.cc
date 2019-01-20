@@ -22,12 +22,15 @@
 //#define DEBUG_LEDSTRIP
 
 extern "C" {
+    #include "platform.h"
     #include "build/build_config.h"
 
     #include "common/axis.h"
     #include "common/color.h"
 
+    #include "pg/pg.h"
     #include "pg/pg_ids.h"
+    #include "pg/rx.h"
 
     #include "drivers/io.h"
     #include "drivers/light_ws2811strip.h"
@@ -348,8 +351,11 @@ void delay(uint32_t ms)
 }
 
 uint32_t micros(void) { return 0; }
+
+uint32_t millis(void) { return 0; }
+
 bool shouldSoundBatteryAlarm(void) { return false; }
-bool feature(uint32_t mask) {
+bool featureIsEnabled(uint32_t mask) {
     UNUSED(mask);
     return false;
 }
@@ -383,6 +389,8 @@ const timerHardware_t timerHardware[USABLE_TIMER_CHANNEL_COUNT] = {};
 
 bool isArmingDisabled(void) { return false; }
 
-uint16_t getRssi(void) { return 0; }
+uint8_t getRssiPercent(void) { return 0; }
+
+bool isFlipOverAfterCrashActive(void) { return false; }
 
 }

@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #pragma once
 
 #include "voltage_ids.h"
@@ -37,8 +38,8 @@ extern const char * const voltageMeterSourceNames[VOLTAGE_METER_COUNT];
 // WARNING - do not mix usage of VOLTAGE_METER_* and VOLTAGE_SENSOR_*, they are separate concerns.
 
 typedef struct voltageMeter_s {
-    uint16_t filtered;                      // voltage in 0.1V steps
-    uint16_t unfiltered;                    // voltage in 0.1V steps
+    uint16_t filtered;                      // voltage in 0.01V steps
+    uint16_t unfiltered;                    // voltage in 0.01V steps
     bool lowVoltageCutoff;
 } voltageMeter_t;
 
@@ -66,7 +67,7 @@ typedef enum {
 #define VBAT_MULTIPLIER_MIN 1
 #define VBAT_MULTIPLIER_MAX 255
 
-#define VBAT_LPF_FREQ  0.1f
+#define VBAT_LPF_FREQ  0.5f
 
 #ifndef MAX_VOLTAGE_SENSOR_ADC
 #define MAX_VOLTAGE_SENSOR_ADC 1 // VBAT - some boards have external, 12V, 9V and 5V meters.

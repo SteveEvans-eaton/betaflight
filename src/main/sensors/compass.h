@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #pragma once
 
 #include "common/time.h"
@@ -33,7 +34,8 @@ typedef enum {
     MAG_HMC5883 = 2,
     MAG_AK8975 = 3,
     MAG_AK8963 = 4,
-    MAG_QMC5883 = 5
+    MAG_QMC5883 = 5,
+    MAG_LIS3MDL = 6
 } magSensor_e;
 
 typedef struct mag_s {
@@ -62,3 +64,4 @@ PG_DECLARE(compassConfig_t, compassConfig);
 bool compassIsHealthy(void);
 void compassUpdate(timeUs_t currentTime);
 bool compassInit(void);
+void compassPreInit(void);

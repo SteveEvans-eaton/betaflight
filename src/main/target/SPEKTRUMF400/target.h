@@ -1,20 +1,20 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
@@ -48,27 +48,25 @@
 //#define USE_FLASHFS
 //#define USE_FLASH_M25P16
 
-//#define M25P16_CS_PIN           PB12
-//#define M25P16_SPI_INSTANCE     SPI2
+//#define FLASH_CS_PIN            PB12
+//#define FLASH_SPI_INSTANCE      SPI2
 
 #define USE_GYRO
 #define USE_GYRO_SPI_MPU6500
 #define USE_GYRO_SPI_MPU9250
-#define GYRO_MPU9250_ALIGN CW270_DEG
+#define GYRO_1_ALIGN       CW270_DEG
 
 #define USE_ACC
 #define USE_ACC_SPI_MPU6500
 #define USE_ACC_SPI_MPU9250
-#define ACC_MPU9250_ALIGN CW270_DEG
+#define ACC_1_ALIGN       CW270_DEG
 
-#define MPU9250_CS_PIN          PB12
-#define MPU9250_SPI_INSTANCE    SPI2
-
-#define MPU6500_CS_PIN          PB12
-#define MPU6500_SPI_INSTANCE    SPI2
+#define GYRO_1_CS_PIN           PB12
+#define GYRO_1_SPI_INSTANCE     SPI2
 
 #define USE_EXTI
-#define MPU_INT_EXTI PC13
+#define USE_GYRO_EXTI
+#define GYRO_1_EXTI_PIN         PC13
 #define USE_MPU_DATA_READY_SIGNAL
 #define ENSURE_MPU_DATA_READY_IS_LOW
 
@@ -102,8 +100,6 @@
 #define USE_ESCSERIAL
 #define ESCSERIAL_TIMER_TX_PIN  PB8
 
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
-
 #define USE_I2C
 
 #define USE_I2C_DEVICE_1
@@ -118,6 +114,7 @@
 
 #define USE_ADC
 #define ADC_INSTANCE            ADC1
+#define ADC1_DMA_OPT            1  // DMA 2 Stream 4 Channel 0 (compat default)
 #define VBAT_ADC_PIN            PC0
 #define CURRENT_METER_ADC_PIN   PC3
 

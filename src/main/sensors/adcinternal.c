@@ -1,20 +1,20 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
@@ -23,7 +23,7 @@
 
 #include "platform.h"
 
-#if defined(USE_ADC) && defined(USE_ADC_INTERNAL)
+#if defined(USE_ADC_INTERNAL)
 
 #include "build/debug.h"
 
@@ -89,7 +89,9 @@ void adcInternalProcess(timeUs_t currentTimeUs)
     int32_t adcTempsensorAdjusted = (int32_t)adcTempsensorValue * 3300 / getVrefMv();
     coreTemperature = ((adcTempsensorAdjusted - adcTSCAL1) * adcTSSlopeK + 30 * 1000 + 500) / 1000;
 
-    DEBUG_SET(DEBUG_CORE_TEMP, 0, coreTemperature);
+    DEBUG_SET(DEBUG_ADC_INTERNAL, 0, coreTemperature);
+    DEBUG_SET(DEBUG_ADC_INTERNAL, 1, vrefintSample);
+    DEBUG_SET(DEBUG_ADC_INTERNAL, 2, tempsensorSample);
 
     adcInternalStartConversion(); // Start next conversion
 }

@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 /*
  * Authors:
  * jflyper - Refactoring, cleanup and made pin-configurable
@@ -29,7 +30,10 @@
 
 #include "platform.h"
 
+#ifdef USE_UART
+
 #include "build/build_config.h"
+#include "build/atomic.h"
 
 #include "common/utils.h"
 #include "drivers/io.h"
@@ -229,26 +233,40 @@ void uartSetMode(serialPort_t *instance, portMode_e mode)
     uartReconfigure(uartPort);
 }
 
-void uartStartTxDMA(uartPort_t *s)
+void uartTryStartTxDMA(uartPort_t *s)
 {
-    uint16_t size = 0;
-    uint32_t fromwhere=0;
-    HAL_UART_StateTypeDef state = HAL_UART_GetState(&s->Handle);
-    if ((state & HAL_UART_STATE_BUSY_TX) == HAL_UART_STATE_BUSY_TX)
-        return;
+    ATOMIC_BLOCK(NVIC_PRIO_SERIALUART_TXDMA) {
+        if (s->txDMAStream->CR & DMA_SxCR_EN) {
+            // DMA is already in progress
+            return;
+        }
 
-    if (s->port.txBufferHead > s->port.txBufferTail) {
-        size = s->port.txBufferHead - s->port.txBufferTail;
-        fromwhere = s->port.txBufferTail;
-        s->port.txBufferTail = s->port.txBufferHead;
-    } else {
-        size = s->port.txBufferSize - s->port.txBufferTail;
-        fromwhere = s->port.txBufferTail;
-        s->port.txBufferTail = 0;
+        HAL_UART_StateTypeDef state = HAL_UART_GetState(&s->Handle);
+        if ((state & HAL_UART_STATE_BUSY_TX) == HAL_UART_STATE_BUSY_TX) {
+            return;
+        }
+
+        if (s->port.txBufferHead == s->port.txBufferTail) {
+            // No more data to transmit
+            s->txDMAEmpty = true;
+            return;
+        }
+
+        uint16_t size;
+        uint32_t fromWhere = s->port.txBufferTail;
+
+        if (s->port.txBufferHead > s->port.txBufferTail) {
+            size = s->port.txBufferHead - s->port.txBufferTail;
+            s->port.txBufferTail = s->port.txBufferHead;
+        } else {
+            size = s->port.txBufferSize - s->port.txBufferTail;
+            s->port.txBufferTail = 0;
+        }
+
+        s->txDMAEmpty = false;
+
+        HAL_UART_Transmit_DMA(&s->Handle, (uint8_t *)&s->port.txBuffer[fromWhere], size);
     }
-    s->txDMAEmpty = false;
-    //HAL_CLEANCACHE((uint8_t *)&s->port.txBuffer[fromwhere],size);
-    HAL_UART_Transmit_DMA(&s->Handle, (uint8_t *)&s->port.txBuffer[fromwhere], size);
 }
 
 uint32_t uartTotalRxBytesWaiting(const serialPort_t *instance)
@@ -348,8 +366,7 @@ void uartWrite(serialPort_t *instance, uint8_t ch)
     }
 
     if (s->txDMAStream) {
-        if (!(s->txDMAStream->CR & 1))
-            uartStartTxDMA(s);
+        uartTryStartTxDMA(s);
     } else {
         __HAL_UART_ENABLE_IT(&s->Handle, UART_IT_TXE);
     }
@@ -442,4 +459,5 @@ void UART8_IRQHandler(void)
     uartPort_t *s = &(uartDevmap[UARTDEV_8]->port);
     uartIrqHandler(s);
 }
+#endif
 #endif

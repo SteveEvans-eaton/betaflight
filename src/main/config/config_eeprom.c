@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -85,16 +86,15 @@ typedef struct {
 void initEEPROM(void)
 {
     // Verify that this architecture packs as expected.
-    BUILD_BUG_ON(offsetof(packingTest_t, byte) != 0);
-    BUILD_BUG_ON(offsetof(packingTest_t, word) != 1);
-    BUILD_BUG_ON(sizeof(packingTest_t) != 5);
+    STATIC_ASSERT(offsetof(packingTest_t, byte) == 0, byte_packing_test_failed);
+    STATIC_ASSERT(offsetof(packingTest_t, word) == 1, word_packing_test_failed);
+    STATIC_ASSERT(sizeof(packingTest_t) == 5, overall_packing_test_failed);
 
-    BUILD_BUG_ON(sizeof(configFooter_t) != 2);
-    BUILD_BUG_ON(sizeof(configRecord_t) != 6);
+    STATIC_ASSERT(sizeof(configFooter_t) == 2, footer_size_failed);
+    STATIC_ASSERT(sizeof(configRecord_t) == 6, record_size_failed);
 }
 
-// Scan the EEPROM config. Returns true if the config is valid.
-bool isEEPROMContentValid(void)
+bool isEEPROMVersionValid(void)
 {
     const uint8_t *p = &__config_start;
     const configHeader_t *header = (const configHeader_t *)p;
@@ -102,6 +102,16 @@ bool isEEPROMContentValid(void)
     if (header->eepromConfigVersion != EEPROM_CONF_VERSION) {
         return false;
     }
+
+    return true;
+}
+
+// Scan the EEPROM config. Returns true if the config is valid.
+bool isEEPROMStructureValid(void)
+{
+    const uint8_t *p = &__config_start;
+    const configHeader_t *header = (const configHeader_t *)p;
+
     if (header->magic_be != 0xBE) {
         return false;
     }
@@ -175,16 +185,23 @@ static const configRecord_t *findEEPROM(const pgRegistry_t *reg, configRecordFla
 //   but each PG is loaded/initialized exactly once and in defined order.
 bool loadEEPROM(void)
 {
+    bool success = true;
+
     PG_FOREACH(reg) {
         const configRecord_t *rec = findEEPROM(reg, CR_CLASSICATION_SYSTEM);
         if (rec) {
             // config from EEPROM is available, use it to initialize PG. pgLoad will handle version mismatch
-            pgLoad(reg, rec->pg, rec->size - offsetof(configRecord_t, pg), rec->version);
+            if (!pgLoad(reg, rec->pg, rec->size - offsetof(configRecord_t, pg), rec->version)) {
+                success = false;
+            }
         } else {
             pgReset(reg);
+
+            success = false;
         }
     }
-    return true;
+
+    return success;
 }
 
 static bool writeSettingsToEEPROM(void)
@@ -246,7 +263,7 @@ void writeConfigToEEPROM(void)
         }
     }
 
-    if (success && isEEPROMContentValid()) {
+    if (success && isEEPROMVersionValid() && isEEPROMStructureValid()) {
         return;
     }
 

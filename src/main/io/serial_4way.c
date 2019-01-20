@@ -1,23 +1,22 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
-
 
 /*
  * Author: 4712
@@ -344,7 +343,7 @@ static uint8_t CurrentInterfaceMode;
 static uint8_t Connect(uint8_32_u *pDeviceInfo)
 {
     for (uint8_t I = 0; I < 3; ++I) {
-        #if (defined(USE_SERIAL_4WAY_BLHELI_BOOTLOADER) && defined(USE_SERIAL_4WAY_SK_BOOTLOADER))
+#if (defined(USE_SERIAL_4WAY_BLHELI_BOOTLOADER) && defined(USE_SERIAL_4WAY_SK_BOOTLOADER))
         if ((CurrentInterfaceMode != imARM_BLB) && Stk_ConnectEx(pDeviceInfo) && ATMEL_DEVICE_MATCH) {
             CurrentInterfaceMode = imSK;
             return 1;
@@ -362,7 +361,7 @@ static uint8_t Connect(uint8_32_u *pDeviceInfo)
                 }
             }
         }
-        #elif defined(USE_SERIAL_4WAY_BLHELI_BOOTLOADER)
+#elif defined(USE_SERIAL_4WAY_BLHELI_BOOTLOADER)
         if (BL_ConnectEx(pDeviceInfo)) {
             if SILABS_DEVICE_MATCH {
                 CurrentInterfaceMode = imSIL_BLB;
@@ -375,12 +374,12 @@ static uint8_t Connect(uint8_32_u *pDeviceInfo)
                 return 1;
             }
         }
-        #elif defined(USE_SERIAL_4WAY_SK_BOOTLOADER)
+#elif defined(USE_SERIAL_4WAY_SK_BOOTLOADER)
         if (Stk_ConnectEx(pDeviceInfo)) {
             CurrentInterfaceMode = imSK;
             if ATMEL_DEVICE_MATCH return 1;
         }
-        #endif
+#endif
     }
     return 0;
 }

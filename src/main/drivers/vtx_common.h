@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 /* Created by jflyper */
 
 #pragma once
@@ -39,7 +40,6 @@
 #define VTX_SETTINGS_DEFAULT_CHANNEL            1
 #define VTX_SETTINGS_DEFAULT_FREQ               5740
 #define VTX_SETTINGS_DEFAULT_PITMODE_FREQ       0
-#define VTX_SETTINGS_DEFAULT_LOW_POWER_DISARM   0
 
 #define VTX_SETTINGS_MAX_FREQUENCY_MHZ 5999          //max freq (in MHz) for 'vtx_freq' setting
 
@@ -121,10 +121,12 @@ typedef struct vtxDevice_s {
 
     vtxDeviceCapability_t capability;
 
-    uint16_t *frequencyTable;  // Array of [bandCount][channelCount]
-    char **bandNames;    // char *bandNames[bandCount]
-    char **channelNames;    // char *channelNames[channelCount]
-    char **powerNames;   // char *powerNames[powerCount]
+    const uint16_t *frequencyTable;  // Array of [bandCount][channelCount]
+    const char **bandNames;          // char *bandNames[bandCount + 1]
+    const char **channelNames;       // char *channelNames[channelCount + 1]
+    const char *bandLetters;         // char bandLetters[bandCount + 1]
+    const uint16_t *powerValues;     // uint16 powerValues[powerCount]
+    const char **powerNames;         // char *powerNames[powerCount + 1]
 
     uint16_t frequency;
     uint8_t band; // Band = 1, 1-based
@@ -165,7 +167,8 @@ vtxDevice_t *vtxCommonDevice(void);
 
 // VTable functions
 void vtxCommonProcess(vtxDevice_t *vtxDevice, timeUs_t currentTimeUs);
-uint8_t vtxCommonGetDeviceType(const vtxDevice_t *vtxDevice);
+vtxDevType_e vtxCommonGetDeviceType(const vtxDevice_t *vtxDevice);
+bool vtxCommonDeviceIsReady(const vtxDevice_t *vtxDevice);
 void vtxCommonSetBandAndChannel(vtxDevice_t *vtxDevice, uint8_t band, uint8_t channel);
 void vtxCommonSetPowerByIndex(vtxDevice_t *vtxDevice, uint8_t level);
 void vtxCommonSetPitMode(vtxDevice_t *vtxDevice, uint8_t onoff);
@@ -175,3 +178,11 @@ bool vtxCommonGetPowerIndex(const vtxDevice_t *vtxDevice, uint8_t *pIndex);
 bool vtxCommonGetPitMode(const vtxDevice_t *vtxDevice, uint8_t *pOnOff);
 bool vtxCommonGetFrequency(const vtxDevice_t *vtxDevice, uint16_t *pFreq);
 bool vtxCommonGetDeviceCapability(const vtxDevice_t *vtxDevice, vtxDeviceCapability_t *pDeviceCapability);
+const char *vtxCommonLookupBandName(const vtxDevice_t *vtxDevice, int band);
+char vtxCommonLookupBandLetter(const vtxDevice_t *vtxDevice, int band);
+char vtxCommonGetBandLetter(const vtxDevice_t *vtxDevice, int band);
+const char *vtxCommonLookupChannelName(const vtxDevice_t *vtxDevice, int channel);
+uint16_t vtxCommonLookupFrequency(const vtxDevice_t *vtxDevice, int band, int channel);
+bool vtxCommonLookupBandChan(const vtxDevice_t *vtxDevice, uint16_t freq, uint8_t *pBand, uint8_t *pChannel);
+const char *vtxCommonLookupPowerName(const vtxDevice_t *vtxDevice, int index);
+uint16_t vtxCommonLookupPowerValue(const vtxDevice_t *vtxDevice, int index);

@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #pragma once
 #define TARGET_BOARD_IDENTIFIER "REVN"
 
@@ -31,31 +32,31 @@
 #define USE_BEEPER
 #define BEEPER_PIN              PC13
 
-#define MPU6500_CS_PIN          PB12
-#define MPU6500_SPI_INSTANCE    SPI2
+#define GYRO_1_CS_PIN           PB12
+#define GYRO_1_SPI_INSTANCE     SPI2
 
 #define USE_ACC
-#define USE_ACC_MPU6500
 #define USE_ACC_SPI_MPU6500
-#define ACC_MPU6500_ALIGN       CW270_DEG
+#define ACC_1_ALIGN             CW270_DEG
 
 #define USE_GYRO
-#define USE_GYRO_MPU6500
 #define USE_GYRO_SPI_MPU6500
-#define GYRO_MPU6500_ALIGN      CW270_DEG
+#define GYRO_1_ALIGN            CW270_DEG
 
 #define USE_BARO
 #define USE_BARO_MS5611
 
 // MPU6500 interrupts
 #define USE_EXTI
-#define MPU_INT_EXTI            PA15
+#define USE_GYRO_EXTI
+#define GYRO_1_EXTI_PIN         PA15
 #define USE_MPU_DATA_READY_SIGNAL
 
 #define USE_VCP
 #define USE_USB_DETECT
 //#define USB_DETECT_PIN          PA9
 
+// The Flexi Port can be used for either UART1 or I2CDEV_1, see I2C section below
 #define USE_UART1 // Flexi Port
 #define UART1_RX_PIN            PB7
 #define UART1_TX_PIN            PB6
@@ -78,8 +79,22 @@
 #define USE_SPI_DEVICE_2
 
 #define USE_I2C
+/* The Flexi Port can be used for either UART1 or I2CDEV_1
+ * I2C resources undefined by default
+ * To use I2C use the following CLI commands:
+ *   resource SERIAL_RX 1 NONE
+ *   resource SERIAL_TX 1 NONE
+ *   resource I2C1_SCL 1 PB6
+ *   resource I2C1_SDA 1 PB7
+ */
 #define USE_I2C_DEVICE_1        // UART1/FlexiPort (PB6,PB7)
-#define I2C_DEVICE (I2CDEV_1)
+#define I2C_DEVICE              I2CDEV_1
+#define I2C1_SCL                NONE // Define as PB6 if required
+#define I2C1_SDA                NONE // Define as PB7 if required
+#define USE_I2C_DEVICE_3
+#define I2C3_SCL                PA8
+#define I2C3_SDA                PB4
+#define BARO_I2C_INSTANCE       I2CDEV_3
 
 #undef USE_LED_STRIP
 

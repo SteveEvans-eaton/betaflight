@@ -23,7 +23,10 @@
 extern "C" {
     #include "platform.h"
 
+    #include "pg/rx.h"
+    #include "build/debug.h"
     #include "drivers/io.h"
+    #include "fc/rc_controls.h"
     #include "rx/rx.h"
     #include "fc/rc_modes.h"
     #include "common/maths.h"
@@ -34,12 +37,16 @@ extern "C" {
     #include "io/beeper.h"
 
     boxBitmask_t rcModeActivationMask;
+    int16_t debug[DEBUG16_VALUE_COUNT];
+    uint8_t debugMode = 0;
 
     bool isPulseValid(uint16_t pulseDuration);
 
     PG_RESET_TEMPLATE(featureConfig_t, featureConfig,
         .enabledFeatures = 0
     );
+
+    PG_REGISTER(flight3DConfig_t, flight3DConfig, PG_MOTOR_3D_CONFIG, 0);
 }
 
 #include "unittest_macros.h"

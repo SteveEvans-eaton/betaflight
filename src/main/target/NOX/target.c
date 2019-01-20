@@ -1,25 +1,26 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include <stdint.h>
 
-#include <platform.h>
+#include "platform.h"
 #include "drivers/io.h"
 
 #include "drivers/dma.h"
@@ -30,7 +31,12 @@ const timerHardware_t timerHardware[USABLE_TIMER_CHANNEL_COUNT] = {
     DEF_TIM(TIM2,  CH3,  PB10, TIM_USE_PPM,   0,     0), // T2C3
 
     DEF_TIM(TIM5,  CH2,  PA1,  TIM_USE_MOTOR, 0, 0), // T2C2(1,6,3), T5C2(1,4,6)
+    // Use T3C2 instead of T1C1N to enable DSHOT telemetry
+#ifdef USE_DSHOT_TELEMETRY
+    DEF_TIM(TIM3,  CH2, PA7,  TIM_USE_MOTOR, 0, 0), // T1C1N(2,3,6), T3C2(1,5,5)
+#else
     DEF_TIM(TIM1,  CH1N, PA7,  TIM_USE_MOTOR, 0, 0), // T1C1N(2,3,6), T3C2(1,5,5)
+#endif
     DEF_TIM(TIM4,  CH3,  PB8,  TIM_USE_MOTOR, 0, 0), // T4C3(1,7,2), T10C1(X)
     DEF_TIM(TIM3,  CH4,  PB1,  TIM_USE_MOTOR, 0, 0), // T1C3N(2,6,6), T3C4(1,7,5)
 

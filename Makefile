@@ -90,6 +90,10 @@ HSE_VALUE       ?= 8000000
 # used for turning on features like VCP and SDCARD
 FEATURES        =
 
+# used to disable features based on flash space shortage (larger number => more features disabled)
+FEATURE_CUT_LEVEL_SUPPLIED := $(FEATURE_CUT_LEVEL)
+FEATURE_CUT_LEVEL =
+
 include $(ROOT)/make/targets.mk
 
 REVISION := $(shell git log -1 --format="%h")
@@ -155,6 +159,12 @@ ifneq ($(HSE_VALUE),)
 DEVICE_FLAGS  := $(DEVICE_FLAGS) -DHSE_VALUE=$(HSE_VALUE)
 endif
 
+ifneq ($(FEATURE_CUT_LEVEL_SUPPLIED),)
+DEVICE_FLAGS  := $(DEVICE_FLAGS) -DFEATURE_CUT_LEVEL=$(FEATURE_CUT_LEVEL_SUPPLIED)
+else ifneq ($(FEATURE_CUT_LEVEL),)
+DEVICE_FLAGS  := $(DEVICE_FLAGS) -DFEATURE_CUT_LEVEL=$(FEATURE_CUT_LEVEL)
+endif
+
 TARGET_DIR     = $(ROOT)/src/main/target/$(BASE_TARGET)
 TARGET_DIR_SRC = $(notdir $(wildcard $(TARGET_DIR)/*.c))
 
@@ -206,10 +216,11 @@ CFLAGS     += $(ARCH_FLAGS) \
               $(addprefix -D,$(OPTIONS)) \
               $(addprefix -I,$(INCLUDE_DIRS)) \
               $(DEBUG_FLAGS) \
-              -std=gnu99 \
+              -std=gnu11 \
               -Wall -Wextra -Wunsafe-loop-optimizations -Wdouble-promotion \
               -ffunction-sections \
               -fdata-sections \
+              -fno-common \
               -pedantic \
               $(DEVICE_FLAGS) \
               -D_GNU_SOURCE \
@@ -224,6 +235,7 @@ CFLAGS     += $(ARCH_FLAGS) \
               $(EXTRA_FLAGS)
 
 ASFLAGS     = $(ARCH_FLAGS) \
+              $(DEBUG_FLAGS) \
               -x assembler-with-cpp \
               $(addprefix -I,$(INCLUDE_DIRS)) \
               -MMD -MP
@@ -242,6 +254,7 @@ LD_FLAGS     = -lm \
               -Wl,-L$(LINKER_DIR) \
               -Wl,--cref \
               -Wl,--no-wchar-size-warning \
+              -Wl,--print-memory-usage \
               -T$(LD_SCRIPT)
 endif
 
@@ -288,7 +301,7 @@ $(TARGET_BIN): $(TARGET_ELF)
 	@echo "Creating BIN $(TARGET_BIN)" "$(STDOUT)"
 	$(V1) $(OBJCOPY) -O binary $< $@
 
-$(TARGET_ELF):  $(TARGET_OBJS)
+$(TARGET_ELF): $(TARGET_OBJS)
 	@echo "Linking $(TARGET)" "$(STDOUT)"
 	$(V1) $(CROSS_CC) -o $@ $^ $(LD_FLAGS)
 	$(V1) $(SIZE) $(TARGET_ELF)
@@ -327,7 +340,7 @@ $(OBJECT_DIR)/$(TARGET)/%.o: %.S
 ## all               : Build all targets (excluding unsupported)
 all: $(SUPPORTED_TARGETS)
 
-## all_with_unsupported : Build all targets (excluding unsupported)
+## all_with_unsupported : Build all targets (including unsupported)
 all_with_unsupported: $(VALID_TARGETS)
 
 ## unsupported : Build unsupported targets
@@ -356,7 +369,7 @@ $(VALID_TARGETS):
 	$(MAKE) binary hex TARGET=$@ && \
 	echo "Building $@ succeeded."
 
-$(SKIP_TARGETS):
+$(NOBUILD_TARGETS):
 	$(MAKE) TARGET=$@
 
 CLEAN_TARGETS = $(addprefix clean_,$(VALID_TARGETS) )
@@ -468,13 +481,91 @@ targets:
 	@echo "targets-group-4:     $(GROUP_4_TARGETS)"
 	@echo "targets-group-rest:  $(GROUP_OTHER_TARGETS)"
 
+	@echo "targets-group-1:     $(words $(GROUP_1_TARGETS)) targets"
+	@echo "targets-group-2:     $(words $(GROUP_2_TARGETS)) targets"
+	@echo "targets-group-3:     $(words $(GROUP_3_TARGETS)) targets"
+	@echo "targets-group-4:     $(words $(GROUP_4_TARGETS)) targets"
+	@echo "targets-group-rest:  $(words $(GROUP_OTHER_TARGETS)) targets"
+	@echo "total in all groups  $(words $(SUPPORTED_TARGETS)) targets"
+
+## target-mcu        : print the MCU type of the target
+target-mcu:
+	@echo $(TARGET_MCU)
+
+## targets-by-mcu    : make all targets that have a MCU_TYPE mcu
+targets-by-mcu:
+	$(V1) for target in $(VALID_TARGETS); do \
+		TARGET_MCU_TYPE=$$($(MAKE) -s TARGET=$${target} target-mcu); \
+		if [ "$${TARGET_MCU_TYPE}" = "$${MCU_TYPE}" ]; then \
+			if [ "$${DO_BUILD}" = 1 ]; then \
+				echo "Building target $${target}..."; \
+				$(MAKE) TARGET=$${target}; \
+				if [ $$? -ne 0 ]; then \
+					echo "Building target $${target} failed, aborting."; \
+					exit 1; \
+				fi; \
+			else \
+				echo -n "$${target} "; \
+			fi; \
+		fi; \
+	done
+	@echo
+
+## targets-f3        : make all F3 targets
+targets-f3:
+	$(V1) $(MAKE) -s targets-by-mcu MCU_TYPE=STM32F3 DO_BUILD=1
+
+targets-f3-print:
+	$(V1) $(MAKE) -s targets-by-mcu MCU_TYPE=STM32F3
+
+## targets-f4        : make all F4 targets
+targets-f4:
+	$(V1) $(MAKE) -s targets-by-mcu MCU_TYPE=STM32F4 DO_BUILD=1
+
+targets-f4-print:
+	$(V1) $(MAKE) -s targets-by-mcu MCU_TYPE=STM32F4
+
+## targets-f7        : make all F7 targets
+targets-f7:
+	$(V1) $(MAKE) -s targets-by-mcu MCU_TYPE=STM32F7 DO_BUILD=1
+
+targets-f7-print:
+	$(V1) $(MAKE) -s targets-by-mcu MCU_TYPE=STM32F7
+
 ## test              : run the cleanflight test suite
 ## junittest         : run the cleanflight test suite, producing Junit XML result files.
 test junittest:
 	$(V0) cd src/test && $(MAKE) $@
 
+
+check-target-independence:
+	$(V1) for test_target in $(VALID_TARGETS); do \
+		FOUND=$$(grep -rE "\W$${test_target}\W?" src/main | grep -vE "(//)|(/\*).*\W$${test_target}\W?" | grep -vE "^src/main/target"); \
+		if [ "$${FOUND}" != "" ]; then \
+			echo "Target dependencies found:"; \
+			echo "$${FOUND}"; \
+			exit 1; \
+		fi; \
+	done
+
+check-fastram-usage-correctness:
+	$(V1) NON_TRIVIALLY_INITIALIZED=$$(grep -Ern "\W?FAST_RAM_ZERO_INIT\W.*=.*" src/main/ | grep -Ev "=\s*(false|NULL|0(\.0*f?)?)\s*[,;]"); \
+	if [ "$${NON_TRIVIALLY_INITIALIZED}" != "" ]; then \
+		echo "Non-trivially initialized FAST_RAM_ZERO_INIT variables found, use FAST_RAM instead:"; \
+		echo "$${NON_TRIVIALLY_INITIALIZED}"; \
+		exit 1; \
+	fi; \
+	TRIVIALLY_INITIALIZED=$$(grep -Ern "\W?FAST_RAM\W.*;" src/main/ | grep -v "="); \
+	EXPLICITLY_TRIVIALLY_INITIALIZED=$$(grep -Ern "\W?FAST_RAM\W.*;" src/main/ | grep -E "=\s*(false|NULL|0(\.0*f?)?)\s*[,;]"); \
+	if [ "$${TRIVIALLY_INITIALIZED}$${EXPLICITLY_TRIVIALLY_INITIALIZED}" != "" ]; then \
+		echo "Trivially initialized FAST_RAM variables found, use FAST_RAM_ZERO_INIT instead to save FLASH:"; \
+		echo "$${TRIVIALLY_INITIALIZED}\n$${EXPLICITLY_TRIVIALLY_INITIALIZED}"; \
+		exit 1; \
+	fi;
+
 # rebuild everything when makefile changes
-$(TARGET_OBJS) : Makefile
+$(TARGET_OBJS): Makefile $(TARGET_DIR)/target.mk
+
 
 # include auto-generated dependencies
 -include $(TARGET_DEPS)

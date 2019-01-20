@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #pragma once
 
 #define DEBUG16_VALUE_COUNT 4
@@ -51,10 +52,10 @@ typedef enum {
     DEBUG_NONE,
     DEBUG_CYCLETIME,
     DEBUG_BATTERY,
-    DEBUG_GYRO,
+    DEBUG_GYRO_FILTERED,
     DEBUG_ACCELEROMETER,
     DEBUG_PIDLOOP,
-    DEBUG_GYRO_NOTCH,
+    DEBUG_GYRO_SCALED,
     DEBUG_RC_INTERPOLATION,
     DEBUG_ANGLERATE,
     DEBUG_ESC_SENSOR,
@@ -67,6 +68,7 @@ typedef enum {
     DEBUG_FFT_TIME,
     DEBUG_FFT_FREQ,
     DEBUG_RX_FRSKY_SPI,
+    DEBUG_RX_SFHSS_SPI,
     DEBUG_GYRO_RAW,
     DEBUG_DUAL_GYRO,
     DEBUG_DUAL_GYRO_RAW,
@@ -79,11 +81,24 @@ typedef enum {
     DEBUG_RANGEFINDER,
     DEBUG_RANGEFINDER_QUALITY,
     DEBUG_LIDAR_TF,
-    DEBUG_CORE_TEMP,
+    DEBUG_ADC_INTERNAL,
     DEBUG_RUNAWAY_TAKEOFF,
     DEBUG_SDIO,
     DEBUG_CURRENT,
     DEBUG_USB,
+    DEBUG_SMARTAUDIO,
+    DEBUG_RTH,
+    DEBUG_ITERM_RELAX,
+    DEBUG_ACRO_TRAINER,
+    DEBUG_RC_SMOOTHING,
+    DEBUG_RX_SIGNAL_LOSS,
+    DEBUG_RC_SMOOTHING_RATE,
+    DEBUG_ANTI_GRAVITY,
+    DEBUG_DYN_LPF,
+    DEBUG_RX_SPEKTRUM_SPI,
+    DEBUG_RPM_TELEMETRY,
+    DEBUG_RPM_FILTER,
+    DEBUG_D_CUT,
     DEBUG_COUNT
 } debugType_e;
 

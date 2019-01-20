@@ -1,24 +1,22 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
-
-
 
 #include "resource.h"
 
@@ -51,11 +49,11 @@ const char * const ownerNames[OWNER_TOTAL_COUNT] = {
     "SDCARD_DETECT",
     "FLASH_CS",
     "BARO_CS",
-    "MPU_CS",
+    "GYRO_CS",
     "OSD_CS",
     "RX_SPI_CS",
     "SPI_CS",
-    "MPU_EXTI",
+    "GYRO_EXTI",
     "BARO_EXTI",
     "COMPASS_EXTI",
     "USB",
@@ -68,7 +66,6 @@ const char * const ownerNames[OWNER_TOTAL_COUNT] = {
     "TRANSPONDER",
     "VTX",
     "COMPASS_CS",
-    "SPI_PREINIT",
     "RX_BIND_PLUG",
     "ESCSERIAL",
     "CAMERA_CONTROL",
@@ -77,4 +74,8 @@ const char * const ownerNames[OWNER_TOTAL_COUNT] = {
     "RX_SPI",
     "PINIO",
     "USB_MSC_PIN",
+    "MCO",
+    "RX_SPI_BIND",
+    "RX_SPI_LED",
+    "PREINIT",
 };

@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #pragma once
 
 #include <stdbool.h>
@@ -87,8 +88,6 @@ typedef struct smartAudioStat_s {
 } smartAudioStat_t;
 
 extern smartAudioDevice_t saDevice;
-extern saPowerTable_t saPowerTable[];
-extern const char * const saPowerNames[];
 extern smartAudioStat_t saStat;
 
 extern uint16_t sa_smartbaud;
@@ -102,14 +101,9 @@ void saSetFreq(uint16_t freq);
 void saSetPitFreq(uint16_t freq);
 bool vtxSmartAudioInit(void);
 
-#ifdef SMARTAUDIO_DPRINTF
-#ifdef OMNIBUSF4
-#define DPRINTF_SERIAL_PORT SERIAL_PORT_USART3
-#else
-#define DPRINTF_SERIAL_PORT SERIAL_PORT_USART1
-#endif
+#ifdef USE_SMARTAUDIO_DPRINTF
 extern serialPort_t *debugSerialPort;
 #define dprintf(x) if (debugSerialPort) printf x
 #else
 #define dprintf(x)
-#endif // SMARTAUDIO_DPRINTF
+#endif // USE_SMARTAUDIO_DPRINTF

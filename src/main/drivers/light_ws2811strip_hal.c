@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -25,13 +26,15 @@
 #ifdef USE_LED_STRIP
 
 #include "common/color.h"
-#include "light_ws2811strip.h"
-#include "drivers/nvic.h"
-#include "dma.h"
+
+#include "drivers/dma.h"
 #include "drivers/io.h"
+#include "drivers/nvic.h"
+#include "drivers/rcc.h"
 #include "drivers/system.h"
-#include "rcc.h"
-#include "timer.h"
+#include "drivers/timer.h"
+
+#include "light_ws2811strip.h"
 
 static IO_t ws2811IO = IO_NONE;
 bool ws2811Initialised = false;
@@ -52,7 +55,7 @@ void ws2811LedStripHardwareInit(ioTag_t ioTag)
         return;
     }
 
-    const timerHardware_t *timerHardware = timerGetByTag(ioTag, TIM_USE_ANY);
+    const timerHardware_t *timerHardware = timerGetByTag(ioTag);
     TIM_TypeDef *timer = timerHardware->tim;
     timerChannel = timerHardware->channel;
 

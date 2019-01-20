@@ -1,28 +1,29 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 #include <math.h>
 
-#include <platform.h>
+#include "platform.h"
 
 #ifdef USE_RANGEFINDER
 
@@ -45,7 +46,7 @@
 
 #include "fc/config.h"
 #include "fc/runtime_config.h"
-#include "fc/fc_tasks.h"
+#include "fc/tasks.h"
 
 #include "sensors/sensors.h"
 #include "sensors/rangefinder.h"
@@ -76,13 +77,6 @@ PG_RESET_TEMPLATE(rangefinderConfig_t, rangefinderConfig,
 
 #ifdef USE_RANGEFINDER_HCSR04
 PG_REGISTER_WITH_RESET_TEMPLATE(sonarConfig_t, sonarConfig, PG_SONAR_CONFIG, 1);
-
-#ifndef RANGEFINDER_HCSR04_TRIGGER_PIN
-#define RANGEFINDER_HCSR04_TRIGGER_PIN NONE
-#endif
-#ifndef RANGEFINDER_HCSR04_ECHO_PIN
-#define RANGEFINDER_HCSR04_ECHO_PIN NONE
-#endif
 
 PG_RESET_TEMPLATE(sonarConfig_t, sonarConfig,
     .triggerTag = IO_TAG(RANGEFINDER_HCSR04_TRIGGER_PIN),

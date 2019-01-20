@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #pragma once
 
 #define TARGET_BOARD_IDENTIFIER "AFF3" // AlienFlight F3.
@@ -24,7 +25,6 @@
 #define TARGET_BUS_INIT
 #define REMAP_TIM17_DMA
 
-#define CONFIG_FASTLOOP_PREFERRED_ACC ACC_DEFAULT
 
 #define USE_HARDWARE_REVISION_DETECTION
 #define HW_PIN                  PB2
@@ -49,15 +49,13 @@
 #define USE_GYRO_MPU6050
 #define USE_GYRO_SPI_MPU6500
 
-#define GYRO_MPU6050_ALIGN      CW270_DEG
-#define GYRO_MPU6500_ALIGN      CW270_DEG
+#define GYRO_1_ALIGN            CW270_DEG
 
 #define USE_ACC
 #define USE_ACC_MPU6050
 #define USE_ACC_SPI_MPU6500
 
-#define ACC_MPU6050_ALIGN       CW270_DEG
-#define ACC_MPU6500_ALIGN       CW270_DEG
+#define ACC_1_ALIGN             CW270_DEG
 
 // No baro support.
 //#define USE_BARO
@@ -106,8 +104,8 @@
 #define SPI3_MISO_PIN           PB4
 #define SPI3_MOSI_PIN           PB5
 
-#define MPU6500_CS_PIN          SPI3_NSS_PIN
-#define MPU6500_SPI_INSTANCE    SPI3
+#define GYRO_1_CS_PIN           SPI3_NSS_PIN
+#define GYRO_1_SPI_INSTANCE     SPI3
 
 #define USE_ADC
 
@@ -121,8 +119,6 @@
 #define DEFAULT_RX_FEATURE      FEATURE_RX_SERIAL
 #define SERIALRX_UART           SERIAL_PORT_USART2
 
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
-
 // IO - stm32f303cc in 48pin package
 #define TARGET_IO_PORTA         0xffff
 #define TARGET_IO_PORTB         0xffff
@@ -130,4 +126,4 @@
 #define TARGET_IO_PORTF         (BIT(0)|BIT(1)|BIT(4))
 
 #define USABLE_TIMER_CHANNEL_COUNT 11
-#define USED_TIMERS             ( TIM_N(1) | TIM_N(2) | TIM_N(3) | TIM_N(15) | TIM_N(17) )
+#define USED_TIMERS             ( TIM_N(1) | TIM_N(2) | TIM_N(3) | TIM_N(8) | TIM_N(15) | TIM_N(16) | TIM_N(17) )

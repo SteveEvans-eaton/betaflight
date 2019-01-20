@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -35,7 +36,12 @@ bool busWriteRegister(const busDevice_t *busdev, uint8_t reg, uint8_t data)
     switch (busdev->bustype) {
 #ifdef USE_SPI
     case BUSTYPE_SPI:
+#ifdef USE_SPI_TRANSACTION
+        // XXX Watch out fastpath users, if any
+        return spiBusTransactionWriteRegister(busdev, reg & 0x7f, data);
+#else
         return spiBusWriteRegister(busdev, reg & 0x7f, data);
+#endif
 #endif
 #ifdef USE_I2C
     case BUSTYPE_I2C:
@@ -56,7 +62,12 @@ bool busReadRegisterBuffer(const busDevice_t *busdev, uint8_t reg, uint8_t *data
     switch (busdev->bustype) {
 #ifdef USE_SPI
     case BUSTYPE_SPI:
+#ifdef USE_SPI_TRANSACTION
+        // XXX Watch out fastpath users, if any
+        return spiBusTransactionReadRegisterBuffer(busdev, reg | 0x80, data, length);
+#else
         return spiBusReadRegisterBuffer(busdev, reg | 0x80, data, length);
+#endif
 #endif
 #ifdef USE_I2C
     case BUSTYPE_I2C:

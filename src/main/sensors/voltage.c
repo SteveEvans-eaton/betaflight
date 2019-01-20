@@ -1,27 +1,28 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include "stdbool.h"
 #include "stdint.h"
 #include "string.h"
 
-#include <platform.h>
+#include "platform.h"
 
 #include "build/build_config.h"
 
@@ -100,8 +101,8 @@ void voltageMeterReset(voltageMeter_t *meter)
 #endif
 
 typedef struct voltageMeterADCState_s {
-    uint16_t voltageFiltered;         // battery voltage in 0.1V steps (filtered)
-    uint16_t voltageUnfiltered;       // battery voltage in 0.1V steps (unfiltered)
+    uint16_t voltageFiltered;         // battery voltage in 0.01V steps (filtered)
+    uint16_t voltageUnfiltered;       // battery voltage in 0.01V steps (unfiltered)
     biquadFilter_t filter;
 } voltageMeterADCState_t;
 
@@ -144,8 +145,8 @@ static const uint8_t voltageMeterAdcChannelMap[] = {
 STATIC_UNIT_TESTED uint16_t voltageAdcToVoltage(const uint16_t src, const voltageSensorADCConfig_t *config)
 {
     // calculate battery voltage based on ADC reading
-    // result is Vbatt in 0.1V steps. 3.3V = ADC Vref, 0xFFF = 12bit adc, 110 = 10:1 voltage divider (10k:1k) * 10 for 0.1V
-    return ((((uint32_t)src * config->vbatscale * getVrefMv() / 100 + (0xFFF * 5)) / (0xFFF * config->vbatresdivval)) / config->vbatresdivmultiplier);
+    // result is Vbatt in 0.01V steps. 3.3V = ADC Vref, 0xFFF = 12bit adc, 110 = 10:1 voltage divider (10k:1k) * 100 for 0.01V
+    return ((((uint32_t)src * config->vbatscale * getVrefMv() / 10 + (0xFFF * 5)) / (0xFFF * config->vbatresdivval)) / config->vbatresdivmultiplier);
 }
 
 void voltageMeterADCRefresh(void)
@@ -190,7 +191,7 @@ void voltageMeterADCInit(void)
         voltageMeterADCState_t *state = &voltageMeterADCStates[i];
         memset(state, 0, sizeof(voltageMeterADCState_t));
 
-        biquadFilterInitLPF(&state->filter, VBAT_LPF_FREQ, 50000);
+        biquadFilterInitLPF(&state->filter, VBAT_LPF_FREQ, HZ_TO_INTERVAL_US(50));
     }
 }
 
@@ -200,8 +201,8 @@ void voltageMeterADCInit(void)
 
 #ifdef USE_ESC_SENSOR
 typedef struct voltageMeterESCState_s {
-    uint16_t voltageFiltered;         // battery voltage in 0.1V steps (filtered)
-    uint16_t voltageUnfiltered;       // battery voltage in 0.1V steps (unfiltered)
+    uint16_t voltageFiltered;         // battery voltage in 0.01V steps (filtered)
+    uint16_t voltageUnfiltered;       // battery voltage in 0.01V steps (unfiltered)
     biquadFilter_t filter;
 } voltageMeterESCState_t;
 
@@ -214,7 +215,7 @@ void voltageMeterESCInit(void)
 {
 #ifdef USE_ESC_SENSOR
     memset(&voltageMeterESCState, 0, sizeof(voltageMeterESCState_t));
-    biquadFilterInitLPF(&voltageMeterESCState.filter, VBAT_LPF_FREQ, 50000); //50HZ Update
+    biquadFilterInitLPF(&voltageMeterESCState.filter, VBAT_LPF_FREQ, HZ_TO_INTERVAL_US(50));
 #endif
 }
 
@@ -223,7 +224,7 @@ void voltageMeterESCRefresh(void)
 #ifdef USE_ESC_SENSOR
     escSensorData_t *escData = getEscSensorData(ESC_SENSOR_COMBINED);
     if (escData) {
-        voltageMeterESCState.voltageUnfiltered = escData->dataAge <= ESC_BATTERY_AGE_MAX ? escData->voltage / 10 : 0;
+        voltageMeterESCState.voltageUnfiltered = escData->dataAge <= ESC_BATTERY_AGE_MAX ? escData->voltage : 0;
         voltageMeterESCState.voltageFiltered = biquadFilterApply(&voltageMeterESCState.filter, voltageMeterESCState.voltageUnfiltered);
     }
 #endif
@@ -237,7 +238,7 @@ void voltageMeterESCReadMotor(uint8_t motorNumber, voltageMeter_t *voltageMeter)
 #else
     escSensorData_t *escData = getEscSensorData(motorNumber);
     if (escData) {
-        voltageMeter->unfiltered = escData->dataAge <= ESC_BATTERY_AGE_MAX ? escData->voltage / 10 : 0;
+        voltageMeter->unfiltered = escData->dataAge <= ESC_BATTERY_AGE_MAX ? escData->voltage : 0;
         voltageMeter->filtered = voltageMeter->unfiltered; // no filtering for ESC motors currently.
     } else {
         voltageMeterReset(voltageMeter);

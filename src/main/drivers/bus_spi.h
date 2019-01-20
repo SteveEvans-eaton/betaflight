@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #pragma once
 
 #include "drivers/bus.h"
@@ -49,7 +50,7 @@
   Flash M25p16 tolerates 20mhz, SPI_CLOCK_FAST should sit around 20 or less.
 */
 typedef enum {
-    SPI_CLOCK_INITIALIZATON = 256,
+    SPI_CLOCK_INITIALIZATION = 256,
 #if defined(STM32F4)
     SPI_CLOCK_SLOW          = 128, //00.65625 MHz
     SPI_CLOCK_STANDARD      = 8,   //10.50000 MHz
@@ -67,6 +68,21 @@ typedef enum {
     SPI_CLOCK_ULTRAFAST     = 2    //18.00000 MHz
 #endif
 } SPIClockDivider_e;
+
+// De facto standard mode
+// See https://en.wikipedia.org/wiki/Serial_Peripheral_Interface
+// 
+// Mode CPOL CPHA
+//  0    0    0
+//  1    0    1
+//  2    1    0
+//  3    1    1
+typedef enum {
+    SPI_MODE0_POL_LOW_EDGE_1ST = 0,
+    SPI_MODE1_POL_LOW_EDGE_2ND,
+    SPI_MODE2_POL_HIGH_EDGE_1ST,
+    SPI_MODE3_POL_HIGH_EDGE_2ND
+} SPIMode_e;
 
 typedef enum SPIDevice {
     SPIINVALID = -1,
@@ -91,8 +107,10 @@ typedef enum SPIDevice {
 #define SPI_CFG_TO_DEV(x)   ((x) - 1)
 #define SPI_DEV_TO_CFG(x)   ((x) + 1)
 
-void spiPreInitCs(ioTag_t iotag);
-void spiPreInitCsOutPU(ioTag_t iotag);
+void spiPreinit(void);
+void spiPreinitRegister(ioTag_t iotag, uint8_t iocfg, uint8_t init);
+void spiPreinitByIO(IO_t io);
+void spiPreinitByTag(ioTag_t tag);
 
 bool spiInit(SPIDevice device);
 void spiSetDivisor(SPI_TypeDef *instance, uint16_t divisor);
@@ -106,12 +124,31 @@ void spiResetErrorCounter(SPI_TypeDef *instance);
 SPIDevice spiDeviceByInstance(SPI_TypeDef *instance);
 SPI_TypeDef *spiInstanceByDevice(SPIDevice device);
 
+bool spiBusIsBusBusy(const busDevice_t *bus);
+
 bool spiBusTransfer(const busDevice_t *bus, const uint8_t *txData, uint8_t *rxData, int length);
 
+uint8_t spiBusTransferByte(const busDevice_t *bus, uint8_t data);
+void spiBusWriteByte(const busDevice_t *bus, uint8_t data);
+bool spiBusRawTransfer(const busDevice_t *bus, const uint8_t *txData, uint8_t *rxData, int len);
+
 bool spiBusWriteRegister(const busDevice_t *bus, uint8_t reg, uint8_t data);
+bool spiBusRawReadRegisterBuffer(const busDevice_t *bus, uint8_t reg, uint8_t *data, uint8_t length);
 bool spiBusReadRegisterBuffer(const busDevice_t *bus, uint8_t reg, uint8_t *data, uint8_t length);
+void spiBusWriteRegisterBuffer(const busDevice_t *bus, uint8_t reg, const uint8_t *data, uint8_t length);
+uint8_t spiBusRawReadRegister(const busDevice_t *bus, uint8_t reg);
 uint8_t spiBusReadRegister(const busDevice_t *bus, uint8_t reg);
 void spiBusSetInstance(busDevice_t *bus, SPI_TypeDef *instance);
+void spiBusSetDivisor(busDevice_t *bus, SPIClockDivider_e divider);
+
+void spiBusTransactionInit(busDevice_t *bus, SPIMode_e mode, SPIClockDivider_e divider);
+void spiBusTransactionSetup(const busDevice_t *bus);
+void spiBusTransactionBegin(const busDevice_t *bus);
+void spiBusTransactionEnd(const busDevice_t *bus);
+bool spiBusTransactionWriteRegister(const busDevice_t *bus, uint8_t reg, uint8_t data);
+uint8_t spiBusTransactionReadRegister(const busDevice_t *bus, uint8_t reg);
+bool spiBusTransactionReadRegisterBuffer(const busDevice_t *bus, uint8_t reg, uint8_t *data, uint8_t length);
+bool spiBusTransactionTransfer(const busDevice_t *bus, const uint8_t *txData, uint8_t *rxData, int length);
 
 struct spiPinConfig_s;
 void spiPinConfigure(const struct spiPinConfig_s *pConfig);

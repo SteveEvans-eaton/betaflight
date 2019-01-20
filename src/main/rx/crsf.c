@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -24,7 +25,7 @@
 
 #include "platform.h"
 
-#ifdef USE_SERIAL_RX
+#ifdef USE_SERIALRX_CRSF
 
 #include "build/build_config.h"
 #include "build/debug.h"
@@ -32,6 +33,8 @@
 #include "common/crc.h"
 #include "common/maths.h"
 #include "common/utils.h"
+
+#include "pg/rx.h"
 
 #include "drivers/serial.h"
 #include "drivers/serial_uart.h"
@@ -156,18 +159,26 @@ STATIC_UNIT_TESTED void crsfDataReceive(uint16_t c, void *data)
                 if (crc == crsfFrame.bytes[fullFrameLength - 1]) {
                     switch (crsfFrame.frame.type)
                     {
-#if defined(USE_MSP_OVER_TELEMETRY)
+#if defined(USE_TELEMETRY_CRSF) && defined(USE_MSP_OVER_TELEMETRY)
                         case CRSF_FRAMETYPE_MSP_REQ:
-                        case CRSF_FRAMETYPE_MSP_WRITE: ;
+                        case CRSF_FRAMETYPE_MSP_WRITE: {
                             uint8_t *frameStart = (uint8_t *)&crsfFrame.frame.payload + CRSF_FRAME_ORIGIN_DEST_SIZE;
                             if (bufferCrsfMspFrame(frameStart, CRSF_FRAME_RX_MSP_FRAME_SIZE)) {
                                 crsfScheduleMspResponse();
                             }
                             break;
+                        }
 #endif
+#if defined(USE_CRSF_CMS_TELEMETRY)
                         case CRSF_FRAMETYPE_DEVICE_PING:
                             crsfScheduleDeviceInfoResponse();
                             break;
+                        case CRSF_FRAMETYPE_DISPLAYPORT_CMD: {
+                            uint8_t *frameStart = (uint8_t *)&crsfFrame.frame.payload + CRSF_FRAME_ORIGIN_DEST_SIZE;
+                            crsfProcessDisplayPortCmd(frameStart);
+                            break;
+                        }
+#endif
                         default:
                             break;
                     }

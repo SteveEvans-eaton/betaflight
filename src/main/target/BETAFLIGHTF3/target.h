@@ -1,35 +1,59 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
- */ //Target code By BorisB and Hector "Hectech FPV" Hind
+ */
+
+//Target code By BorisB and Hector "Hectech FPV" Hind
 
 #pragma once
 
 #define TARGET_BOARD_IDENTIFIER "BFF3"
 
 // Removed to make the firmware fit into flash (in descending order of priority):
+//#undef USE_GYRO_OVERFLOW_CHECK
+#undef USE_GYRO_LPF2
 
+//#undef USE_MSP_DISPLAYPORT
+//#undef USE_MSP_OVER_TELEMETRY
+
+//#undef USE_DYN_LPF
+//#undef USE_D_CUT
+
+#undef USE_ITERM_RELAX
+#undef USE_RC_SMOOTHING_FILTER
+
+#undef USE_HUFFMAN
+#undef USE_PINIO
+#undef USE_PINIOBOX
+
+#undef USE_TELEMETRY_HOTT
+#undef USE_TELEMETRY_MAVLINK
+#undef USE_TELEMETRY_LTM
+#undef USE_SERIALRX_XBUS
+#undef USE_SERIALRX_SUMH
+#undef USE_PWM
+
+#undef USE_BOARD_INFO
+#undef USE_EXTENDED_CMS_MENUS
 #undef USE_RTC_TIME
-#undef USE_COPY_PROFILE_CMS_MENU
 #undef USE_RX_MSP
 #undef USE_ESC_SENSOR_INFO
 
-#define CONFIG_FASTLOOP_PREFERRED_ACC ACC_NONE
 
 #define USE_BEEPER
 #define BEEPER_PIN              PC15
@@ -39,20 +63,22 @@
 
 #define USABLE_TIMER_CHANNEL_COUNT 10
 
-#define MPU6000_CS_PIN          PA15
-#define MPU6000_SPI_INSTANCE    SPI1
+#define GYRO_1_CS_PIN           PA15
+#define GYRO_1_SPI_INSTANCE     SPI1
 
 #define USE_GYRO
 #define USE_GYRO_SPI_MPU6000
-#define GYRO_MPU6000_ALIGN      CW180_DEG
+#define GYRO_1_ALIGN            CW180_DEG
 
 #define USE_ACC
 #define USE_ACC_SPI_MPU6000
-#define ACC_MPU6000_ALIGN       CW180_DEG
+#define ACC_1_ALIGN             CW180_DEG
 
 // MPU6000 interrupts
 #define USE_MPU_DATA_READY_SIGNAL
-#define MPU_INT_EXTI                PC13
+#define USE_EXTI
+#define USE_GYRO_EXTI
+#define GYRO_1_EXTI_PIN             PC13
 #define USE_EXTI
 
 #define REMAP_TIM16_DMA
@@ -106,16 +132,11 @@
 #define MAX7456_RESTORE_CLK     (SPI_CLOCK_FAST)
 
 #define USE_SDCARD
-
+#define USE_SDCARD_SPI
 #define SDCARD_DETECT_INVERTED
 #define SDCARD_DETECT_PIN                   PC14
-
 #define SDCARD_SPI_INSTANCE                 SPI2
 #define SDCARD_SPI_CS_PIN                   SPI2_NSS_PIN
-
-#define SDCARD_SPI_INITIALIZATION_CLOCK_DIVIDER 128
-#define SDCARD_SPI_FULL_SPEED_CLOCK_DIVIDER     2
-
 #define SDCARD_DMA_CHANNEL_TX               DMA1_Channel5
 
 #define DEFAULT_VOLTAGE_METER_SOURCE VOLTAGE_METER_ADC
@@ -137,12 +158,10 @@
 #define SBUS_TELEMETRY_UART     SERIAL_PORT_USART1
 #define DEFAULT_FEATURES        (FEATURE_TELEMETRY | FEATURE_OSD)
 
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
-
 // IO - stm32f303cc in 48pin package
 #define TARGET_IO_PORTA         0xffff
 #define TARGET_IO_PORTB         0xffff
 #define TARGET_IO_PORTC         (BIT(13)|BIT(14)|BIT(15))
 #define TARGET_IO_PORTF         (BIT(0)|BIT(1)|BIT(3)|BIT(4))
 
-#define USED_TIMERS             ( TIM_N(1) | TIM_N(2) | TIM_N(3) | TIM_N(4) | TIM_N(8) | TIM_N(15) | TIM_N(16) | TIM_N(17) )
+#define USED_TIMERS             ( TIM_N(1) | TIM_N(2) | TIM_N(3) | TIM_N(4) | TIM_N(8) | TIM_N(16) | TIM_N(17) )

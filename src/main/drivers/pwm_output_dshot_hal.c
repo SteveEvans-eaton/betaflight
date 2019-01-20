@@ -1,23 +1,22 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
-
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -31,12 +30,13 @@
 #include "timer.h"
 #include "pwm_output.h"
 #include "drivers/nvic.h"
+#include "drivers/time.h"
 #include "dma.h"
 #include "rcc.h"
 
-static FAST_RAM uint8_t dmaMotorTimerCount = 0;
-static FAST_RAM motorDmaTimer_t dmaMotorTimers[MAX_DMA_TIMERS];
-static FAST_RAM motorDmaOutput_t dmaMotors[MAX_SUPPORTED_MOTORS];
+static FAST_RAM_ZERO_INIT uint8_t dmaMotorTimerCount = 0;
+static FAST_RAM_ZERO_INIT motorDmaTimer_t dmaMotorTimers[MAX_DMA_TIMERS];
+static FAST_RAM_ZERO_INIT motorDmaOutput_t dmaMotors[MAX_SUPPORTED_MOTORS];
 
 motorDmaOutput_t *getMotorDmaOutput(uint8_t index)
 {
@@ -62,7 +62,17 @@ FAST_CODE void pwmWriteDshotInt(uint8_t index, uint16_t value)
         return;
     }
 
-    uint16_t packet = prepareDshotPacket(motor, value);
+    /*If there is a command ready to go overwrite the value and send that instead*/
+    if (pwmDshotCommandIsProcessing()) {
+        value = pwmGetDshotCommand(index);
+        if (value) {
+            motor->requestTelemetry = true;
+        }
+    }
+
+    motor->value = value;
+
+    uint16_t packet = prepareDshotPacket(motor);
     uint8_t bufferSize;
 
 #ifdef USE_DSHOT_DMAR
@@ -82,6 +92,13 @@ FAST_CODE void pwmWriteDshotInt(uint8_t index, uint16_t value)
 FAST_CODE void pwmCompleteDshotMotorUpdate(uint8_t motorCount)
 {
     UNUSED(motorCount);
+
+    /* If there is a dshot command loaded up, time it correctly with motor update*/
+    if (pwmDshotCommandIsQueued()) {
+        if (!pwmDshotCommandOutputIsEnabled(motorCount)) {
+            return;
+        }
+    }
 
     for (int i = 0; i < dmaMotorTimerCount; i++) {
 #ifdef USE_DSHOT_DMAR
@@ -103,6 +120,7 @@ FAST_CODE void pwmCompleteDshotMotorUpdate(uint8_t motorCount)
             dmaMotorTimers[i].timerDmaSources = 0;
         }
     }
+    pwmDshotCommandQueueUpdate();
 }
 
 static void motor_DMA_IRQHandler(dmaChannelDescriptor_t* descriptor)
@@ -164,7 +182,7 @@ void pwmDshotMotorHardwareConfig(const timerHardware_t *timerHardware, uint8_t m
         LL_TIM_DisableCounter(timer);
 
         init.Prescaler = (uint16_t)(lrintf((float) timerClock(timer) / getDshotHz(pwmProtocolType) + 0.01f) - 1);
-        init.Autoreload = pwmProtocolType == PWM_TYPE_PROSHOT1000 ? MOTOR_NIBBLE_LENGTH_PROSHOT : MOTOR_BITLENGTH;
+        init.Autoreload = (pwmProtocolType == PWM_TYPE_PROSHOT1000 ? MOTOR_NIBBLE_LENGTH_PROSHOT : MOTOR_BITLENGTH) - 1;
         init.ClockDivision = LL_TIM_CLOCKDIVISION_DIV1;
         init.RepetitionCounter = 0;
         init.CounterMode = LL_TIM_COUNTERMODE_UP;

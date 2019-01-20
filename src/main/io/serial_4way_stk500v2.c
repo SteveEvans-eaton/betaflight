@@ -1,23 +1,22 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
-
 
 /*
  * Author: 4712
@@ -30,7 +29,7 @@
 
 #include "platform.h"
 
-#ifdef  USE_SERIAL_4WAY_BLHELI_INTERFACE
+#if defined(USE_SERIAL_4WAY_BLHELI_INTERFACE) && defined(USE_SERIAL_4WAY_SK_BOOTLOADER)
 
 #include "drivers/io.h"
 #include "drivers/serial.h"
@@ -41,7 +40,6 @@
 #include "io/serial_4way_impl.h"
 #include "io/serial_4way_stk500v2.h"
 
-#ifdef USE_SERIAL_4WAY_SK_BOOTLOADER
 
 #define BIT_LO_US (32) //32uS
 #define BIT_HI_US (2*BIT_LO_US)
@@ -426,5 +424,4 @@ uint8_t Stk_WriteEEprom(ioMem_t *pMem)
     }
     return 0;
 }
-#endif
 #endif

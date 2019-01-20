@@ -10,13 +10,15 @@ TARGET_SRC = \
 ifeq ($(TARGET), CRAZYBEEF3FS)
 TARGET_SRC += \
             drivers/rx/rx_a7105.c \
-            rx/flysky.c
+            rx/a7105_flysky.c
 else
 ifeq ($(TARGET), CRAZYBEEF3FR)
 TARGET_SRC += \
             drivers/rx/rx_cc2500.c \
+            rx/cc2500_common.c \
             rx/cc2500_frsky_shared.c \
             rx/cc2500_frsky_d.c \
-            rx/cc2500_frsky_x.c
+            rx/cc2500_frsky_x.c \
+            rx/cc2500_sfhss.c
 endif
 endif

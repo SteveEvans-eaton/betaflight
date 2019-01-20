@@ -27,9 +27,10 @@ extern "C" {
     #include "platform.h"
     #include "target.h"
     #include "build/version.h"
-    #include "pg/pg.h"
     #include "config/feature.h"
+    #include "pg/pg.h"
     #include "pg/pg_ids.h"
+    #include "pg/rx.h"
     #include "drivers/buf_writer.h"
     #include "drivers/vtx_common.h"
     #include "fc/config.h"
@@ -209,6 +210,7 @@ uint8_t getCurrentControlRateProfileIndex(void){ return 1; }
 void changeControlRateProfile(uint8_t) {}
 void resetAllRxChannelRangeConfigurations(rxChannelRangeConfig_t *) {}
 void writeEEPROM() {}
+void writeEEPROMWithFeatures(uint32_t) {}
 serialPortConfig_t *serialFindPortConfiguration(serialPortIdentifier_e) {return NULL; }
 baudRate_e lookupBaudRateIndex(uint32_t){return BAUD_9600; }
 serialPortUsage_t *findSerialPortUsageByIdentifier(serialPortIdentifier_e){ return NULL; }
@@ -230,6 +232,7 @@ uint8_t __config_end = 0x10;
 uint16_t averageSystemLoadPercent = 0;
 
 timeDelta_t getTaskDeltaTime(cfTaskId_e){ return 0; }
+uint16_t currentRxRefreshRate = 9000;
 armingDisableFlags_e getArmingDisableFlags(void) { return ARMING_DISABLED_NO_GYRO; }
 
 const char *armingDisableFlagNames[]= {
@@ -238,6 +241,7 @@ const char *armingDisableFlagNames[]= {
 
 void getTaskInfo(cfTaskId_e, cfTaskInfo_t *) {}
 void getCheckFuncInfo(cfCheckFuncInfo_t *) {}
+void schedulerResetTaskMaxExecutionTime(cfTaskId_e) {}
 
 const char * const targetName = "UNITTEST";
 const char* const buildDate = "Jan 01 2017";
@@ -271,4 +275,13 @@ void serialSetCtrlLineState(serialPort_t *, uint16_t ) {}
 
 void serialSetBaudRateCb(serialPort_t *, void (*)(serialPort_t *context, uint32_t baud), serialPort_t *) {}
 
+char *getBoardName(void) { return NULL; };
+char *getManufacturerId(void) { return NULL; };
+bool boardInformationIsSet(void) { return true; };
+
+bool setBoardName(char *newBoardName) { UNUSED(newBoardName); return true; };
+bool setManufacturerId(char *newManufacturerId) { UNUSED(newManufacturerId); return true; };
+bool persistBoardInformation(void) { return true; };
+
+void activeAdjustmentRangeReset(void) {}
 }

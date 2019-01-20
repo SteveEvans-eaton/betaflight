@@ -1,28 +1,32 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #pragma once
 
 #include "common/color.h"
 #include "common/time.h"
-#include "pg/pg.h"
+
 #include "drivers/io_types.h"
+#include "drivers/light_ws2811strip.h"
+
+#include "pg/pg.h"
 
 #define LED_MAX_STRIP_LENGTH           32
 #define LED_CONFIGURABLE_COLOR_COUNT   16
@@ -74,6 +78,24 @@
 #define CALCULATE_LED_XY(x, y) ((((x) & LED_XY_MASK) << LED_X_BIT_OFFSET) | (((y) & LED_XY_MASK) << LED_Y_BIT_OFFSET))
 
 typedef enum {
+    COLOR_BLACK = 0,
+    COLOR_WHITE,
+    COLOR_RED,
+    COLOR_ORANGE,
+    COLOR_YELLOW,
+    COLOR_LIME_GREEN,
+    COLOR_GREEN,
+    COLOR_MINT_GREEN,
+    COLOR_CYAN,
+    COLOR_LIGHT_BLUE,
+    COLOR_BLUE,
+    COLOR_DARK_VIOLET,
+    COLOR_MAGENTA,
+    COLOR_DEEP_PINK,
+    COLOR_COUNT
+} colorId_e;
+
+typedef enum {
     LED_MODE_ORIENTATION = 0,
     LED_MODE_HEADFREE,
     LED_MODE_HORIZON,
@@ -123,11 +145,14 @@ typedef enum {
     LED_OVERLAY_WARNING
 } ledOverlayId_e;
 
-// Enumeration to match the string options defined in lookupLedStripFormatRGB in settings.c
 typedef enum {
-    LED_GRB,
-    LED_RGB
-} ledStripFormatRGB_e;
+    LED_PROFILE_RACE = 0,
+    LED_PROFILE_BEACON,
+#ifdef USE_LED_STRIP_STATUS_MODE
+    LED_PROFILE_STATUS,
+#endif
+    LED_PROFILE_COUNT
+} ledProfile_e;
 
 typedef struct modeColorIndexes_s {
     uint8_t color[LED_DIRECTION_COUNT];
@@ -155,13 +180,16 @@ typedef struct ledStripConfig_s {
     uint8_t ledstrip_aux_channel;
     ioTag_t ioTag;
     ledStripFormatRGB_e ledstrip_grb_rgb;
+    ledProfile_e ledstrip_profile;
+    colorId_e ledRaceColor;
+
 } ledStripConfig_t;
 
 PG_DECLARE(ledStripConfig_t, ledStripConfig);
 
-hsvColor_t *colors;
-const modeColorIndexes_t *modeColors;
-specialColorIndexes_t specialColors;
+extern hsvColor_t *colors;
+extern const modeColorIndexes_t *modeColors;
+extern specialColorIndexes_t specialColors;
 
 #define LF(name) LED_FUNCTION_ ## name
 #define LO(name) LED_FLAG_OVERLAY(LED_OVERLAY_ ## name)
@@ -188,6 +216,7 @@ void reevaluateLedConfig(void);
 
 void ledStripInit(void);
 void ledStripEnable(void);
+void ledStripDisable(void);
 void ledStripUpdate(timeUs_t currentTimeUs);
 
 bool setModeColor(ledModeIndex_e modeIndex, int modeColorIndex, int colorIndex);
@@ -198,3 +227,8 @@ void applyDefaultModeColors(modeColorIndexes_t *modeColors);
 void applyDefaultSpecialColors(specialColorIndexes_t *specialColors);
 
 void updateRequiredOverlay(void);
+
+uint8_t getLedProfile(void);
+void setLedProfile(uint8_t profile);
+uint8_t getLedRaceColor(void);
+void setLedRaceColor(uint8_t color);

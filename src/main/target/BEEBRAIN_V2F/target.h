@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #pragma once
 
 #if defined(BEESTORM)
@@ -26,29 +27,29 @@
 #endif
 #define USE_TARGET_CONFIG
 
-#define CONFIG_FASTLOOP_PREFERRED_ACC ACC_DEFAULT
 
 #define LED0_PIN                PB1
 #define LED1_PIN                PB2
 
 #define USE_EXTI
-#define MPU_INT_EXTI            PB6
+#define USE_GYRO_EXTI
+#define GYRO_1_EXTI_PIN         PB6
 #define USE_MPU_DATA_READY_SIGNAL
 
 #define USE_GYRO
 #define USE_GYRO_SPI_MPU6500
 #if defined(BEESTORM)
-#define GYRO_MPU6500_ALIGN      CW180_DEG
+#define GYRO_1_ALIGN            CW180_DEG
 #else
-#define GYRO_MPU6500_ALIGN      CW270_DEG
+#define GYRO_1_ALIGN            CW270_DEG
 #endif
 
 #define USE_ACC
 #define USE_ACC_SPI_MPU6500
 #if defined(BEESTORM)
-#define ACC_MPU6500_ALIGN       CW180_DEG
+#define ACC_1_ALIGN             CW180_DEG
 #else
-#define ACC_MPU6500_ALIGN       CW270_DEG
+#define ACC_1_ALIGN             CW270_DEG
 #endif
 
 #define SERIAL_PORT_COUNT       4
@@ -85,8 +86,8 @@
 #define SPI3_MISO_PIN           PB4
 #define SPI3_MOSI_PIN           PB5
 
-#define MPU6500_CS_PIN          PA15
-#define MPU6500_SPI_INSTANCE    SPI3
+#define GYRO_1_CS_PIN           PA15
+#define GYRO_1_SPI_INSTANCE     SPI3
 
 #define USE_MAX7456
 #define MAX7456_SPI_INSTANCE    SPI1

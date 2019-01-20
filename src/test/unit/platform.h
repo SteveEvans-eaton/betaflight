@@ -18,6 +18,7 @@
 #pragma once
 
 #include <stdio.h>
+#include <stdint.h>
 
 #define USE_PARAMETER_GROUPS
 
@@ -27,8 +28,9 @@
 
 #define NOINLINE
 #define FAST_CODE
+#define FAST_CODE_NOINLINE
+#define FAST_RAM_ZERO_INIT
 #define FAST_RAM
-#define FAST_RAM_INITIALIZED
 
 #define MAX_PROFILE_COUNT 3
 #define USE_MAG
@@ -106,4 +108,9 @@ typedef struct
 #define WS2811_DMA_HANDLER_IDENTIFER 0
 #define NVIC_PriorityGroup_2 0x500
 
+#define MCU_TYPE_ID   99
+#define MCU_TYPE_NAME "UNIT_TEST"
+
 #include "target.h"
+
+#include "target/common_defaults_post.h"

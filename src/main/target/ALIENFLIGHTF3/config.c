@@ -1,26 +1,27 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <platform.h>
+#include "platform.h"
 
 #ifdef USE_TARGET_CONFIG
 
@@ -36,6 +37,8 @@
 #include "flight/pid.h"
 
 #include "pg/beeper_dev.h"
+#include "pg/gyrodev.h"
+#include "pg/rx.h"
 
 #include "rx/rx.h"
 
@@ -58,6 +61,8 @@
 // alternative defaults settings for AlienFlight targets
 void targetConfiguration(void)
 {
+    gyroDeviceConfigMutable(0)->extiTag = selectMPUIntExtiConfigByHardwareRevision();
+
     /* depending on revision ... depends on the LEDs to be utilised. */
     if (hardwareRevision == AFF3_REV_2) {
         statusLedConfigMutable()->inversion = 0
@@ -99,7 +104,7 @@ void targetConfiguration(void)
         rxConfigMutable()->serialrx_inverted = true;
         serialConfigMutable()->portConfigs[findSerialPortIndexByIdentifier(SERIALRX_UART)].functionMask = FUNCTION_TELEMETRY_FRSKY_HUB | FUNCTION_RX_SERIAL;
         telemetryConfigMutable()->telemetry_inverted = false;
-        featureSet(FEATURE_TELEMETRY);
+        featureEnable(FEATURE_TELEMETRY);
         beeperDevConfigMutable()->isOpenDrain = false;
         beeperDevConfigMutable()->isInverted = true;
         parseRcChannels("AETR1234", rxConfigMutable());

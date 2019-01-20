@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -31,7 +32,8 @@
 
 #include "fc/config.h"
 #include "fc/controlrate_profile.h"
-#include "fc/fc_rc.h"
+#include "fc/rc.h"
+#include "fc/rc_controls.h"
 
 controlRateConfig_t *currentControlRateProfile;
 
@@ -43,8 +45,8 @@ void pgResetFn_controlRateProfiles(controlRateConfig_t *controlRateConfig)
         RESET_CONFIG(controlRateConfig_t, &controlRateConfig[i],
             .thrMid8 = 50,
             .thrExpo8 = 0,
-            .dynThrPID = 10,
-            .tpa_breakpoint = 1650,
+            .dynThrPID = 50,
+            .tpa_breakpoint = 1500,
             .rates_type = RATES_TYPE_BETAFLIGHT,
             .rcRates[FD_ROLL] = 100,
             .rcRates[FD_PITCH] = 100,
@@ -56,30 +58,32 @@ void pgResetFn_controlRateProfiles(controlRateConfig_t *controlRateConfig)
             .rates[FD_PITCH] = 70,
             .rates[FD_YAW] = 70,
             .throttle_limit_type = THROTTLE_LIMIT_TYPE_OFF,
-            .throttle_limit_percent = 100
+            .throttle_limit_percent = 100,
+            .rate_limit[FD_ROLL] = CONTROL_RATE_CONFIG_RATE_LIMIT_MAX,
+            .rate_limit[FD_PITCH] = CONTROL_RATE_CONFIG_RATE_LIMIT_MAX,
+            .rate_limit[FD_YAW] = CONTROL_RATE_CONFIG_RATE_LIMIT_MAX,
+            .tpaMode = TPA_MODE_D,
         );
     }
 }
 
-void setControlRateProfile(uint8_t controlRateProfileIndex)
+void loadControlRateProfile(void)
 {
-    if (controlRateProfileIndex < CONTROL_RATE_PROFILE_COUNT) {
-        systemConfigMutable()->activeRateProfile = controlRateProfileIndex;
-        currentControlRateProfile = controlRateProfilesMutable(controlRateProfileIndex);
-    }
+    currentControlRateProfile = controlRateProfilesMutable(systemConfig()->activeRateProfile);
 }
 
 void changeControlRateProfile(uint8_t controlRateProfileIndex)
 {
-    if (controlRateProfileIndex >= CONTROL_RATE_PROFILE_COUNT) {
-        controlRateProfileIndex = CONTROL_RATE_PROFILE_COUNT - 1;
+    if (controlRateProfileIndex < CONTROL_RATE_PROFILE_COUNT) {
+        systemConfigMutable()->activeRateProfile = controlRateProfileIndex;
     }
-    setControlRateProfile(controlRateProfileIndex);
+
+    loadControlRateProfile();
     initRcProcessing();
 }
 
 void copyControlRateProfile(const uint8_t dstControlRateProfileIndex, const uint8_t srcControlRateProfileIndex) {
-    if ((dstControlRateProfileIndex < CONTROL_RATE_PROFILE_COUNT-1 && srcControlRateProfileIndex < CONTROL_RATE_PROFILE_COUNT-1)
+    if ((dstControlRateProfileIndex < CONTROL_RATE_PROFILE_COUNT && srcControlRateProfileIndex < CONTROL_RATE_PROFILE_COUNT)
         && dstControlRateProfileIndex != srcControlRateProfileIndex
     ) {
         memcpy(controlRateProfilesMutable(dstControlRateProfileIndex), controlRateProfilesMutable(srcControlRateProfileIndex), sizeof(controlRateConfig_t));

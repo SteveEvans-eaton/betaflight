@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -40,7 +41,7 @@
 #include "drivers/serial_softserial.h"
 #endif
 
-#ifdef SITL
+#if defined(SIMULATOR_BUILD)
 #include "drivers/serial_tcp.h"
 #endif
 
@@ -220,10 +221,6 @@ serialPortConfig_t *findNextSerialPortConfig(serialPortFunction_e function)
     return NULL;
 }
 
-typedef struct findSharedSerialPortState_s {
-    uint8_t lastIndex;
-} findSharedSerialPortState_t;
-
 portSharing_e determinePortSharing(const serialPortConfig_t *portConfig, serialPortFunction_e function)
 {
     if (!portConfig || (portConfig->functionMask & function) == 0) {
@@ -237,19 +234,10 @@ bool isSerialPortShared(const serialPortConfig_t *portConfig, uint16_t functionM
     return (portConfig) && (portConfig->functionMask & sharedWithFunction) && (portConfig->functionMask & functionMask);
 }
 
-static findSharedSerialPortState_t findSharedSerialPortState;
-
 serialPort_t *findSharedSerialPort(uint16_t functionMask, serialPortFunction_e sharedWithFunction)
 {
-    memset(&findSharedSerialPortState, 0, sizeof(findSharedSerialPortState));
-
-    return findNextSharedSerialPort(functionMask, sharedWithFunction);
-}
-
-serialPort_t *findNextSharedSerialPort(uint16_t functionMask, serialPortFunction_e sharedWithFunction)
-{
-    while (findSharedSerialPortState.lastIndex < SERIAL_PORT_COUNT) {
-        const serialPortConfig_t *candidate = &serialConfig()->portConfigs[findSharedSerialPortState.lastIndex++];
+    for (unsigned i = 0; i < SERIAL_PORT_COUNT; i++) {
+        const serialPortConfig_t *candidate = &serialConfig()->portConfigs[i];
 
         if (isSerialPortShared(candidate, functionMask, sharedWithFunction)) {
             const serialPortUsage_t *serialPortUsage = findSerialPortUsageByIdentifier(candidate->identifier);
@@ -275,7 +263,7 @@ bool isSerialConfigValid(const serialConfig_t *serialConfigToCheck)
      * rules:
      * - 1 MSP port minimum, max MSP ports is defined and must be adhered to.
      * - MSP is allowed to be shared with EITHER any telemetry OR blackbox.
-     *   (using either / or, switching based on armed / disarmed or an AUX channel if 'telemetry_switch' is true
+     *   (using either / or, switching based on armed / disarmed or the AUX channel configured for BOXTELEMETRY)
      * - serial RX and FrSky / LTM / MAVLink telemetry can be shared
      *   (serial RX using RX line, telemetry using TX line)
      * - No other sharing combinations are valid.
@@ -389,8 +377,8 @@ serialPort_t *openSerialPort(
 #ifdef USE_UART8
         case SERIAL_PORT_USART8:
 #endif
-#ifdef SITL
-            // SITL emulates serial ports over TCP
+#if defined(SIMULATOR_BUILD)
+            // emulate serial ports over TCP
             serialPort = serTcpOpen(SERIAL_PORT_IDENTIFIER_TO_UARTDEV(identifier), rxCallback, rxCallbackData, baudRate, mode, options);
 #else
             serialPort = uartOpen(SERIAL_PORT_IDENTIFIER_TO_UARTDEV(identifier), rxCallback, rxCallbackData, baudRate, mode, options);
@@ -458,7 +446,17 @@ void serialInit(bool softserialEnabled, serialPortIdentifier_e serialPortToDisab
             }
         }
 
-        if ((serialPortUsageList[index].identifier == SERIAL_PORT_SOFTSERIAL1
+#if !defined(SIMULATOR_BUILD)
+        else if (serialPortUsageList[index].identifier <= SERIAL_PORT_USART8) {
+            int resourceIndex = SERIAL_PORT_IDENTIFIER_TO_INDEX(serialPortUsageList[index].identifier);
+            if (!(serialPinConfig()->ioTagTx[resourceIndex] || serialPinConfig()->ioTagRx[resourceIndex])) {
+                serialPortUsageList[index].identifier = SERIAL_PORT_NONE;
+                serialPortCount--;
+            }
+        }
+#endif
+
+        else if ((serialPortUsageList[index].identifier == SERIAL_PORT_SOFTSERIAL1
 #ifdef USE_SOFTSERIAL1
             && !(softserialEnabled && (serialPinConfig()->ioTagTx[RESOURCE_SOFT_OFFSET + SOFTSERIAL1] ||
                 serialPinConfig()->ioTagRx[RESOURCE_SOFT_OFFSET + SOFTSERIAL1]))
@@ -507,7 +505,7 @@ void waitForSerialPortToFinishTransmitting(serialPort_t *serialPort)
     };
 }
 
-#if defined(USE_GPS) || ! defined(SKIP_SERIAL_PASSTHROUGH)
+#if defined(USE_GPS) || defined(USE_SERIAL_PASSTHROUGH)
 // Default data consumer for serialPassThrough.
 static void nopConsumer(uint8_t data)
 {

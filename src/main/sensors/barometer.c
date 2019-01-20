@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <math.h>
@@ -35,6 +36,7 @@
 #include "drivers/barometer/barometer.h"
 #include "drivers/barometer/barometer_bmp085.h"
 #include "drivers/barometer/barometer_bmp280.h"
+#include "drivers/barometer/barometer_qmp6988.h"
 #include "drivers/barometer/barometer_fake.h"
 #include "drivers/barometer/barometer_ms5611.h"
 #include "drivers/barometer/barometer_lps.h"
@@ -50,14 +52,13 @@
 
 baro_t baro;                        // barometer access functions
 
-PG_REGISTER_WITH_RESET_FN(barometerConfig_t, barometerConfig, PG_BAROMETER_CONFIG, 0);
+PG_REGISTER_WITH_RESET_FN(barometerConfig_t, barometerConfig, PG_BAROMETER_CONFIG, 1);
 
 void pgResetFn_barometerConfig(barometerConfig_t *barometerConfig)
 {
     barometerConfig->baro_sample_count = 21;
     barometerConfig->baro_noise_lpf = 600;
     barometerConfig->baro_cf_vel = 985;
-    barometerConfig->baro_cf_alt = 965;
     barometerConfig->baro_hardware = BARO_DEFAULT;
 
     // For backward compatibility; ceate a valid default value for bus parameters
@@ -67,7 +68,7 @@ void pgResetFn_barometerConfig(barometerConfig_t *barometerConfig)
     //   a. Precedence is in the order of popularity; BMP280, MS5611 then BMP085, then
     //   b. If SPI variant is specified, it is likely onboard, so take it.
 
-#if !(defined(DEFAULT_BARO_SPI_BMP280) || defined(DEFAULT_BARO_BMP280) || defined(DEFAULT_BARO_SPI_MS5611) || defined(DEFAULT_BARO_MS5611) || defined(DEFAULT_BARO_BMP085) || defined(DEFAULT_BARO_SPI_LPS))
+#if !(defined(DEFAULT_BARO_SPI_BMP280) || defined(DEFAULT_BARO_BMP280) || defined(DEFAULT_BARO_SPI_MS5611) || defined(DEFAULT_BARO_MS5611) || defined(DEFAULT_BARO_BMP085) || defined(DEFAULT_BARO_SPI_LPS) || defined(DEFAULT_BARO_SPI_QMP6988) || defined(DEFAULT_BARO_QMP6988))
 #if defined(USE_BARO_BMP280) || defined(USE_BARO_SPI_BMP280)
 #if defined(USE_BARO_SPI_BMP280)
 #define DEFAULT_BARO_SPI_BMP280
@@ -80,6 +81,12 @@ void pgResetFn_barometerConfig(barometerConfig_t *barometerConfig)
 #else
 #define DEFAULT_BARO_MS5611
 #endif
+#elif defined(USE_BARO_QMP6988) || defined(USE_BARO_SPI_QMP6988)
+#if defined(USE_BARO_SPI_QMP6988)
+#define DEFAULT_BARO_SPI_QMP6988
+#else
+#define DEFAULT_BARO_QMP6988
+#endif
 #elif defined(USE_BARO_SPI_LPS)
 #define DEFAULT_BARO_SPI_LPS
 #elif defined(DEFAULT_BARO_BMP085)
@@ -87,25 +94,13 @@ void pgResetFn_barometerConfig(barometerConfig_t *barometerConfig)
 #endif
 #endif
 
-#if defined(DEFAULT_BARO_SPI_BMP280)
+#if defined(DEFAULT_BARO_SPI_BMP280) || defined(DEFAULT_BARO_SPI_MS5611) || defined(DEFAULT_BARO_SPI_QMP6988) || defined(DEFAULT_BARO_SPI_LPS)
     barometerConfig->baro_bustype = BUSTYPE_SPI;
-    barometerConfig->baro_spi_device = SPI_DEV_TO_CFG(spiDeviceByInstance(BMP280_SPI_INSTANCE));
-    barometerConfig->baro_spi_csn = IO_TAG(BMP280_CS_PIN);
+    barometerConfig->baro_spi_device = SPI_DEV_TO_CFG(spiDeviceByInstance(BARO_SPI_INSTANCE));
+    barometerConfig->baro_spi_csn = IO_TAG(BARO_CS_PIN);
     barometerConfig->baro_i2c_device = I2C_DEV_TO_CFG(I2CINVALID);
     barometerConfig->baro_i2c_address = 0;
-#elif defined(DEFAULT_BARO_SPI_MS5611)
-    barometerConfig->baro_bustype = BUSTYPE_SPI;
-    barometerConfig->baro_spi_device = SPI_DEV_TO_CFG(spiDeviceByInstance(MS5611_SPI_INSTANCE));
-    barometerConfig->baro_spi_csn = IO_TAG(MS5611_CS_PIN);
-    barometerConfig->baro_i2c_device = I2C_DEV_TO_CFG(I2CINVALID);
-    barometerConfig->baro_i2c_address = 0;
-#elif defined(DEFAULT_BARO_SPI_LPS)
-    barometerConfig->baro_bustype = BUSTYPE_SPI;
-    barometerConfig->baro_spi_device = SPI_DEV_TO_CFG(spiDeviceByInstance(LPS_SPI_INSTANCE));
-    barometerConfig->baro_spi_csn = IO_TAG(LPS_CS_PIN);
-    barometerConfig->baro_i2c_device = I2C_DEV_TO_CFG(I2CINVALID);
-    barometerConfig->baro_i2c_address = 0;
-#elif defined(DEFAULT_BARO_MS5611) || defined(DEFAULT_BARO_BMP280) || defined(DEFAULT_BARO_BMP085)
+#elif defined(DEFAULT_BARO_MS5611) || defined(DEFAULT_BARO_BMP280) || defined(DEFAULT_BARO_BMP085)||defined(DEFAULT_BARO_QMP6988)
     // All I2C devices shares a default config with address = 0 (per device default)
     barometerConfig->baro_bustype = BUSTYPE_I2C;
     barometerConfig->baro_i2c_device = I2C_DEV_TO_CFG(BARO_I2C_INSTANCE);
@@ -132,32 +127,48 @@ static int32_t baroGroundAltitude = 0;
 static int32_t baroGroundPressure = 8*101325;
 static uint32_t baroPressureSum = 0;
 
+void baroPreInit(void)
+{
+#ifdef USE_SPI
+    if (barometerConfig()->baro_bustype == BUSTYPE_SPI) {
+        spiPreinitRegister(barometerConfig()->baro_spi_csn, IOCFG_IPU, 1);
+    }
+#endif
+}
+
 bool baroDetect(baroDev_t *dev, baroSensor_e baroHardwareToUse)
 {
     // Detect what pressure sensors are available. baro->update() is set to sensor-specific update function
 
     baroSensor_e baroHardware = baroHardwareToUse;
 
-#if !defined(USE_BARO_BMP085) && !defined(USE_BARO_MS5611) && !defined(USE_BARO_SPI_MS5611) && !defined(USE_BARO_BMP280) && !defined(USE_BARO_SPI_BMP280)
+#if !defined(USE_BARO_BMP085) && !defined(USE_BARO_MS5611) && !defined(USE_BARO_SPI_MS5611) && !defined(USE_BARO_BMP280) && !defined(USE_BARO_SPI_BMP280)&& !defined(USE_BARO_QMP6988) && !defined(USE_BARO_SPI_QMP6988)
     UNUSED(dev);
 #endif
 
     switch (barometerConfig()->baro_bustype) {
-    case BUSTYPE_I2C:
 #ifdef USE_I2C
+    case BUSTYPE_I2C:
         dev->busdev.bustype = BUSTYPE_I2C;
         dev->busdev.busdev_u.i2c.device = I2C_CFG_TO_DEV(barometerConfig()->baro_i2c_device);
         dev->busdev.busdev_u.i2c.address = barometerConfig()->baro_i2c_address;
-#endif
         break;
+#endif
 
-    case BUSTYPE_SPI:
 #ifdef USE_SPI
-        dev->busdev.bustype = BUSTYPE_SPI;
-        spiBusSetInstance(&dev->busdev, spiInstanceByDevice(SPI_CFG_TO_DEV(barometerConfig()->baro_spi_device)));
-        dev->busdev.busdev_u.spi.csnPin = IOGetByTag(barometerConfig()->baro_spi_csn);
-#endif
+    case BUSTYPE_SPI:
+        {
+            SPI_TypeDef *instance = spiInstanceByDevice(SPI_CFG_TO_DEV(barometerConfig()->baro_spi_device));
+            if (!instance) {
+                return false;
+            }
+
+            dev->busdev.bustype = BUSTYPE_SPI;
+            spiBusSetInstance(&dev->busdev, instance);
+            dev->busdev.busdev_u.spi.csnPin = IOGetByTag(barometerConfig()->baro_spi_csn);
+        }
         break;
+#endif
 
     default:
         return false;
@@ -214,7 +225,15 @@ bool baroDetect(baroDev_t *dev, baroSensor_e baroHardwareToUse)
         }
 #endif
         FALLTHROUGH;
-
+	
+	 case BARO_QMP6988:
+#if defined(USE_BARO_QMP6988) || defined(USE_BARO_SPI_QMP6988)
+        if (qmp6988Detect(dev)) {
+            baroHardware = BARO_QMP6988;
+            break;
+        }
+#endif
+		FALLTHROUGH;
     case BARO_NONE:
         baroHardware = BARO_NONE;
         break;

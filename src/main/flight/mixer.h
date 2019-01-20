@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #pragma once
 
 #include "platform.h"
@@ -32,11 +33,7 @@
 #define BRUSHLESS_MOTORS_PWM_RATE 480
 
 // Digital protocol has fixed values
-#define DSHOT_DISARM_COMMAND      0
-#define DSHOT_MIN_THROTTLE       48
-#define DSHOT_MAX_THROTTLE     2047
-#define DSHOT_3D_DEADBAND_LOW  1047
-#define DSHOT_3D_DEADBAND_HIGH 1048
+#define DSHOT_3D_FORWARD_MIN_THROTTLE 1048
 
 // Note: this is called MultiType/MULTITYPE_* in baseflight.
 typedef enum mixerMode
@@ -100,6 +97,7 @@ typedef struct motorConfig_s {
     uint16_t minthrottle;                   // Set the minimum throttle command sent to the ESC (Electronic Speed Controller). This is the minimum value that allow motors to run at a idle speed.
     uint16_t maxthrottle;                   // This is the maximum value for the ESCs at full power this value can be increased up to 2000
     uint16_t mincommand;                    // This is the value for the ESCs when they are not armed. In some cases, this value must be lowered down to 900 for some specific ESCs
+    uint8_t motorPoleCount;                // Magnetic poles in the motors for calculating actual RPM from eRPM provided by ESC telemetry
 } motorConfig_t;
 
 PG_DECLARE(motorConfig_t, motorConfig);
@@ -115,7 +113,6 @@ struct rxConfig_s;
 uint8_t getMotorCount(void);
 float getMotorMixRange(void);
 bool areMotorsRunning(void);
-bool mixerIsOutputSaturated(int axis, float errorRate);
 
 void mixerLoadMix(int index, motorMixer_t *customMixers);
 void mixerInit(mixerMode_e mixerMode);
@@ -132,3 +129,6 @@ void stopPwmAllMotors(void);
 float convertExternalToMotor(uint16_t externalValue);
 uint16_t convertMotorToExternal(float motorValue);
 bool mixerIsTricopter(void);
+
+void mixerSetThrottleAngleCorrection(int correctionValue);
+

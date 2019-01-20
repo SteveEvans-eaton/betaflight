@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #pragma once
 
 #include <stdint.h>
@@ -41,6 +42,9 @@ typedef struct systemConfig_s {
     uint8_t cpu_overclock;
     uint8_t powerOnArmingGraceTime; // in seconds
     char boardIdentifier[sizeof(TARGET_BOARD_IDENTIFIER) + 1];
+    uint8_t hseMhz; // Not used for non-F4 targets
+    uint8_t configured;
+    uint8_t schedulerOptimizeRate;
 } systemConfig_t;
 
 PG_DECLARE(systemConfig_t, systemConfig);
@@ -48,24 +52,15 @@ PG_DECLARE(systemConfig_t, systemConfig);
 struct pidProfile_s;
 extern struct pidProfile_s *currentPidProfile;
 
-void beeperOffSet(uint32_t mask);
-void beeperOffSetAll(uint8_t beeperCount);
-void beeperOffClear(uint32_t mask);
-void beeperOffClearAll(void);
-uint32_t getBeeperOffMask(void);
-void setBeeperOffMask(uint32_t mask);
-uint32_t getPreferredBeeperOffMask(void);
-void setPreferredBeeperOffMask(uint32_t mask);
-
 void initEEPROM(void);
 void resetEEPROM(void);
-void readEEPROM(void);
+bool readEEPROM(void);
 void writeEEPROM(void);
-void ensureEEPROMContainsValidData(void);
+void writeEEPROMWithFeatures(uint32_t features);
+void ensureEEPROMStructureIsValid(void);
 
 void saveConfigAndNotify(void);
 void validateAndFixGyroConfig(void);
-void activateConfig(void);
 
 uint8_t getCurrentPidProfileIndex(void);
 void changePidProfile(uint8_t pidProfileIndex);
@@ -82,3 +77,5 @@ uint16_t getCurrentMinthrottle(void);
 void resetConfigs(void);
 void targetConfiguration(void);
 void targetValidateConfiguration(void);
+
+bool isSystemConfigured(void);

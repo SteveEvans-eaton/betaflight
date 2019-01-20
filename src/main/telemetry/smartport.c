@@ -1,20 +1,20 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
@@ -30,7 +30,7 @@
 
 #include "platform.h"
 
-#if defined(USE_TELEMETRY) && defined(USE_TELEMETRY_SMARTPORT)
+#if defined(USE_TELEMETRY_SMARTPORT)
 
 #include "common/axis.h"
 #include "common/color.h"
@@ -38,8 +38,6 @@
 #include "common/utils.h"
 
 #include "config/feature.h"
-#include "pg/pg.h"
-#include "pg/pg_ids.h"
 
 #include "drivers/accgyro/accgyro.h"
 #include "drivers/compass/compass.h"
@@ -51,33 +49,38 @@
 #include "fc/rc_controls.h"
 #include "fc/runtime_config.h"
 
-#include "flight/altitude.h"
 #include "flight/failsafe.h"
 #include "flight/imu.h"
 #include "flight/mixer.h"
 #include "flight/pid.h"
+#include "flight/position.h"
 
 #include "interface/msp.h"
 
 #include "io/beeper.h"
-#include "io/motors.h"
 #include "io/gps.h"
+#include "io/motors.h"
 #include "io/serial.h"
-
-#include "sensors/boardalignment.h"
-#include "sensors/sensors.h"
-#include "sensors/battery.h"
-#include "sensors/acceleration.h"
-#include "sensors/barometer.h"
-#include "sensors/compass.h"
-#include "sensors/esc_sensor.h"
-#include "sensors/gyro.h"
 
 #include "rx/rx.h"
 
-#include "telemetry/telemetry.h"
-#include "telemetry/smartport.h"
+#include "pg/pg.h"
+#include "pg/pg_ids.h"
+#include "pg/rx.h"
+
+#include "sensors/acceleration.h"
+#include "sensors/adcinternal.h"
+#include "sensors/barometer.h"
+#include "sensors/battery.h"
+#include "sensors/boardalignment.h"
+#include "sensors/compass.h"
+#include "sensors/esc_sensor.h"
+#include "sensors/gyro.h"
+#include "sensors/sensors.h"
+
 #include "telemetry/msp_shared.h"
+#include "telemetry/smartport.h"
+#include "telemetry/telemetry.h"
 
 #define SMARTPORT_MIN_TELEMETRY_RESPONSE_DELAY_US 500
 
@@ -126,6 +129,7 @@ enum
     FSSP_DATAID_ACCY       = 0x0710 ,
     FSSP_DATAID_ACCZ       = 0x0720 ,
     FSSP_DATAID_T1         = 0x0400 ,
+    FSSP_DATAID_T11        = 0x0401 ,
     FSSP_DATAID_T2         = 0x0410 ,
     FSSP_DATAID_HOME_DIST  = 0x0420 ,
     FSSP_DATAID_GPS_ALT    = 0x0820 ,
@@ -143,81 +147,35 @@ enum
     FSSP_DATAID_A4         = 0x0910
 };
 
-// high priority/fast-changing sensor data
-const uint16_t frSkyDataIdTable[] = {
-#ifdef USE_GPS
-    FSSP_DATAID_SPEED     ,
-#endif
-    FSSP_DATAID_VFAS      ,
-    FSSP_DATAID_CURRENT   ,
-    FSSP_DATAID_ALTITUDE  ,
-    FSSP_DATAID_FUEL      ,
-    //FSSP_DATAID_ADC1      ,
-    //FSSP_DATAID_ADC2      ,
-#ifdef USE_GPS
-    FSSP_DATAID_LATLONG   ,
-    FSSP_DATAID_LATLONG   , // twice
-#endif
-    //FSSP_DATAID_CAP_USED  ,
-    FSSP_DATAID_VARIO     ,
-    //FSSP_DATAID_CELLS     ,
-    //FSSP_DATAID_CELLS_LAST,
-    FSSP_DATAID_HEADING   ,
-    FSSP_DATAID_ACCX      ,
-    FSSP_DATAID_ACCY      ,
-    FSSP_DATAID_ACCZ      ,
-#ifdef USE_GPS
-    FSSP_DATAID_HOME_DIST ,
-    FSSP_DATAID_GPS_ALT   ,
-#endif
-    FSSP_DATAID_ASPD      ,
-    FSSP_DATAID_A4
-};
+// if adding more sensors then increase this value
+#define MAX_DATAIDS 17
 
-// low priority/slow-changing sensor data (IDs in each row are sent alternatively i.e. half-rate)
-const uint16_t frSkyDataIdTable2[] = {
-    FSSP_DATAID_T1        , FSSP_DATAID_T2        ,
-#ifdef USE_ESC_SENSOR
-    FSSP_DATAID_RPM       , FSSP_DATAID_TEMP        // ESC_SENSOR_COMBINED values
-#endif
-};
+static uint16_t frSkyDataIdTable[MAX_DATAIDS];
 
-#ifdef USE_ESC_SENSOR
-// individual ESC data IDs - fast-changing data
-const uint16_t frSkyEscDataIdTable[] = {
-    FSSP_DATAID_CURRENT1  ,
-    FSSP_DATAID_RPM1
-};
+#ifdef USE_ESC_SENSOR_TELEMETRY
+// number of sensors to send between sending the ESC sensors
+#define ESC_SENSOR_PERIOD 7
 
-// individual ESC data IDs - slow-changing data (half-rate)
-const uint16_t frSkyEscDataIdTable2[] = {
-    FSSP_DATAID_VFAS1     , FSSP_DATAID_TEMP1
-};
+// if adding more esc sensors then increase this value
+#define MAX_ESC_DATAIDS 4
+
+static uint16_t frSkyEscDataIdTable[MAX_ESC_DATAIDS];
 #endif
 
 typedef struct frSkyTableInfo_s {
-    const uint16_t * table;
+    uint16_t * table;
     uint8_t size;
-    uint8_t cycleLength;
-    bool appendEscOffset;
+    uint8_t index;
 } frSkyTableInfo_t;
 
-const frSkyTableInfo_t frSkyDataIdTables[] = {
-    {frSkyDataIdTable, sizeof(frSkyDataIdTable)/sizeof(uint16_t), 1, false},
-    {frSkyDataIdTable2, sizeof(frSkyDataIdTable2)/sizeof(uint16_t), 2, false},
-#ifdef USE_ESC_SENSOR
-    {frSkyEscDataIdTable, sizeof(frSkyEscDataIdTable)/sizeof(uint16_t), 1, true},
-    {frSkyEscDataIdTable2, sizeof(frSkyEscDataIdTable2)/sizeof(uint16_t), 2, true}
+static frSkyTableInfo_t frSkyDataIdTableInfo = { frSkyDataIdTable, 0, 0 };
+#ifdef USE_ESC_SENSOR_TELEMETRY
+static frSkyTableInfo_t frSkyEscDataIdTableInfo = {frSkyEscDataIdTable, 0, 0};
 #endif
-};
 
-#define FRSKY_TABLE_COUNT sizeof(frSkyDataIdTables)/sizeof(frSkyDataIdTables[0])
-#define DATAID_CYCLE_LENGTH 2 // lcd of table cycleLengths
-
-#define __USE_C99_MATH // for roundf()
 #define SMARTPORT_BAUD 57600
 #define SMARTPORT_UART_MODE MODE_RXTX
-#define SMARTPORT_SERVICE_TIMEOUT_MS 1 // max allowed time to find a value to send
+#define SMARTPORT_SERVICE_TIMEOUT_US 1000 // max allowed time to find a value to send
 
 static serialPort_t *smartPortSerialPort = NULL; // The 'SmartPort'(tm) Port.
 static serialPortConfig_t *portConfig;
@@ -303,6 +261,7 @@ smartPortPayload_t *smartPortDataReceive(uint16_t c, bool *clearToSend, smartPor
             checksum += c;
             checksum = (checksum & 0xFF) + (checksum >> 8);
             if (checksum == 0xFF) {
+
                 return (smartPortPayload_t *)&rxBuffer;
             }
         }
@@ -324,6 +283,11 @@ void smartPortSendByte(uint8_t c, uint16_t *checksum, serialPort_t *port)
     if (checksum != NULL) {
         *checksum += c;
     }
+}
+
+bool smartPortPayloadContainsMSP(const smartPortPayload_t *payload)
+{
+    return payload->frameId == FSSP_MSPC_FRAME_SMARTPORT || payload->frameId == FSSP_MSPC_FRAME_FPORT;
 }
 
 void smartPortWriteFrameSerial(const smartPortPayload_t *payload, serialPort_t *port, uint16_t checksum)
@@ -351,6 +315,114 @@ static void smartPortSendPackage(uint16_t id, uint32_t val)
     smartPortWriteFrame(&payload);
 }
 
+#define ADD_SENSOR(dataId) frSkyDataIdTableInfo.table[frSkyDataIdTableInfo.index++] = dataId
+#define ADD_ESC_SENSOR(dataId) frSkyEscDataIdTableInfo.table[frSkyEscDataIdTableInfo.index++] = dataId
+
+static void initSmartPortSensors(void)
+{
+    frSkyDataIdTableInfo.index = 0;
+
+    if (telemetryIsSensorEnabled(SENSOR_MODE)) {
+        ADD_SENSOR(FSSP_DATAID_T1);
+        ADD_SENSOR(FSSP_DATAID_T2);
+    }
+
+#if defined(USE_ADC_INTERNAL)
+    if (telemetryIsSensorEnabled(SENSOR_TEMPERATURE)) {
+        ADD_SENSOR(FSSP_DATAID_T11);
+    }
+#endif
+
+    if (isBatteryVoltageConfigured() && telemetryIsSensorEnabled(SENSOR_VOLTAGE)) {
+#ifdef USE_ESC_SENSOR_TELEMETRY
+        if (!telemetryIsSensorEnabled(ESC_SENSOR_VOLTAGE))
+#endif
+        {
+            ADD_SENSOR(FSSP_DATAID_VFAS);
+        }
+
+        ADD_SENSOR(FSSP_DATAID_A4);
+    }
+
+    if (isAmperageConfigured() && telemetryIsSensorEnabled(SENSOR_CURRENT)) {
+#ifdef USE_ESC_SENSOR_TELEMETRY
+        if (!telemetryIsSensorEnabled(ESC_SENSOR_CURRENT))
+#endif
+        {
+            ADD_SENSOR(FSSP_DATAID_CURRENT);
+        }
+
+        if (telemetryIsSensorEnabled(SENSOR_FUEL)) {
+            ADD_SENSOR(FSSP_DATAID_FUEL);
+        }
+    }
+
+    if (sensors(SENSOR_ACC)) {
+        if (telemetryIsSensorEnabled(SENSOR_HEADING)) {
+            ADD_SENSOR(FSSP_DATAID_HEADING);
+        }
+        if (telemetryIsSensorEnabled(SENSOR_ACC_X)) {
+            ADD_SENSOR(FSSP_DATAID_ACCX);
+        }
+        if (telemetryIsSensorEnabled(SENSOR_ACC_Y)) {
+            ADD_SENSOR(FSSP_DATAID_ACCY);
+        }
+        if (telemetryIsSensorEnabled(SENSOR_ACC_Z)) {
+            ADD_SENSOR(FSSP_DATAID_ACCZ);
+        }
+    }
+
+    if (sensors(SENSOR_BARO)) {
+        if (telemetryIsSensorEnabled(SENSOR_ALTITUDE)) {
+            ADD_SENSOR(FSSP_DATAID_ALTITUDE);
+        }
+        if (telemetryIsSensorEnabled(SENSOR_VARIO)) {
+            ADD_SENSOR(FSSP_DATAID_VARIO);
+        }
+    }
+
+#ifdef USE_GPS
+    if (featureIsEnabled(FEATURE_GPS)) {
+        if (telemetryIsSensorEnabled(SENSOR_GROUND_SPEED)) {
+            ADD_SENSOR(FSSP_DATAID_SPEED);
+        }
+        if (telemetryIsSensorEnabled(SENSOR_LAT_LONG)) {
+            ADD_SENSOR(FSSP_DATAID_LATLONG);
+            ADD_SENSOR(FSSP_DATAID_LATLONG); // twice (one for lat, one for long)
+        }
+        if (telemetryIsSensorEnabled(SENSOR_DISTANCE)) {
+            ADD_SENSOR(FSSP_DATAID_HOME_DIST);
+        }
+        if (telemetryIsSensorEnabled(SENSOR_ALTITUDE)) {
+            ADD_SENSOR(FSSP_DATAID_GPS_ALT);
+        }
+    }
+#endif
+
+    frSkyDataIdTableInfo.size = frSkyDataIdTableInfo.index;
+    frSkyDataIdTableInfo.index = 0;
+
+#ifdef USE_ESC_SENSOR_TELEMETRY
+    frSkyEscDataIdTableInfo.index = 0;
+
+    if (telemetryIsSensorEnabled(ESC_SENSOR_VOLTAGE)) {
+        ADD_ESC_SENSOR(FSSP_DATAID_VFAS);
+    }
+    if (telemetryIsSensorEnabled(ESC_SENSOR_CURRENT)) {
+        ADD_ESC_SENSOR(FSSP_DATAID_CURRENT);
+    }
+    if (telemetryIsSensorEnabled(ESC_SENSOR_RPM)) {
+        ADD_ESC_SENSOR(FSSP_DATAID_RPM);
+    }
+    if (telemetryIsSensorEnabled(ESC_SENSOR_TEMPERATURE)) {
+        ADD_ESC_SENSOR(FSSP_DATAID_TEMP);
+    }
+
+    frSkyEscDataIdTableInfo.size = frSkyEscDataIdTableInfo.index;
+    frSkyEscDataIdTableInfo.index = 0;
+#endif
+}
+
 bool initSmartPortTelemetry(void)
 {
     if (telemetryState == TELEMETRY_STATE_UNINITIALIZED) {
@@ -359,6 +431,8 @@ bool initSmartPortTelemetry(void)
             smartPortPortSharing = determinePortSharing(portConfig, FUNCTION_TELEMETRY_SMARTPORT);
 
             smartPortWriteFrame = smartPortWriteFrameInternal;
+
+            initSmartPortSensors();
 
             telemetryState = TELEMETRY_STATE_INITIALIZED_SERIAL;
         }
@@ -373,6 +447,8 @@ bool initSmartPortTelemetryExternal(smartPortWriteFrameFn *smartPortWriteFrameEx
 {
     if (telemetryState == TELEMETRY_STATE_UNINITIALIZED) {
         smartPortWriteFrame = smartPortWriteFrameExternal;
+
+        initSmartPortSensors();
 
         telemetryState = TELEMETRY_STATE_INITIALIZED_EXTERNAL;
 
@@ -420,26 +496,43 @@ static void smartPortSendMspResponse(uint8_t *data) {
 }
 #endif
 
-void processSmartPortTelemetry(smartPortPayload_t *payload, volatile bool *clearToSend, const uint32_t *requestTimeout)
+void processSmartPortTelemetry(smartPortPayload_t *payload, volatile bool *clearToSend, const timeUs_t *requestTimeout)
 {
-    if (payload) {
-        // do not check the physical ID here again
-        // unless we start receiving other sensors' packets
+    static uint8_t smartPortIdCycleCnt = 0;
+    static uint8_t t1Cnt = 0;
+    static uint8_t t2Cnt = 0;
+    static uint8_t skipRequests = 0;
+#ifdef USE_ESC_SENSOR_TELEMETRY
+    static uint8_t smartPortIdOffset = 0;
+#endif
 
 #if defined(USE_MSP_OVER_TELEMETRY)
-        if (payload->frameId == FSSP_MSPC_FRAME_SMARTPORT || payload->frameId == FSSP_MSPC_FRAME_FPORT) {
-            // Pass only the payload: skip frameId
-            uint8_t *frameStart = (uint8_t *)&payload->valueId;
-            smartPortMspReplyPending = handleMspFrame(frameStart, SMARTPORT_MSP_PAYLOAD_SIZE);
+    if (skipRequests) {
+        skipRequests--;
+    } else if (payload && smartPortPayloadContainsMSP(payload)) {
+        // Do not check the physical ID here again
+        // unless we start receiving other sensors' packets
+        // Pass only the payload: skip frameId
+        uint8_t *frameStart = (uint8_t *)&payload->valueId;
+        smartPortMspReplyPending = handleMspFrame(frameStart, SMARTPORT_MSP_PAYLOAD_SIZE, &skipRequests);
+         
+        // Don't send MSP response after write to eeprom
+        // CPU just got out of suspended state after writeEEPROM()
+        // We don't know if the receiver is listening again
+        // Skip a few telemetry requests before sending response
+        if (skipRequests) {
+            *clearToSend = false;
         }
-#endif
     }
+#else
+    UNUSED(payload);
+#endif
 
     bool doRun = true;
-    while (doRun && *clearToSend) {
+    while (doRun && *clearToSend && !skipRequests) {
         // Ensure we won't get stuck in the loop if there happens to be nothing available to send in a timely manner - dump the slot if we loop in there for too long.
         if (requestTimeout) {
-            if (millis() >= *requestTimeout) {
+            if (cmpTimeUs(micros(), *requestTimeout) >= 0) {
                 *clearToSend = false;
 
                 return;
@@ -458,59 +551,60 @@ void processSmartPortTelemetry(smartPortPayload_t *payload, volatile bool *clear
 #endif
 
         // we can send back any data we want, our tables keep track of the order and frequency of each data type we send
-        static uint8_t smartPortIdTableCnt = 0;
-        static uint8_t smartPortIdCnt = 0;
-        static uint8_t smartPortIdCycleCnt = 0;
-        static uint8_t smartPortIdOffset = 0;
-        frSkyTableInfo_t smartPortIdTableInfo = frSkyDataIdTables[smartPortIdTableCnt];
-        if (smartPortIdCnt == smartPortIdTableInfo.size) { // end of table reached, move to next table
-            smartPortIdCnt = 0;
-            smartPortIdTableCnt++;
-            if (smartPortIdTableCnt == FRSKY_TABLE_COUNT) { // if last table then loop back round to first table
-                smartPortIdTableCnt = 0;
-                // move to next ID in cycles
-                smartPortIdCycleCnt++;
-                if (smartPortIdCycleCnt == DATAID_CYCLE_LENGTH) {
-                    smartPortIdCycleCnt = 0;
-                    // on new cycle, move to next ESCon new cycle
-                    smartPortIdOffset++;
-                    if (smartPortIdOffset == getMotorCount()) {
-                        smartPortIdOffset = 0;
-                    }
+        frSkyTableInfo_t * tableInfo = &frSkyDataIdTableInfo;
+
+#ifdef USE_ESC_SENSOR_TELEMETRY
+        if (smartPortIdCycleCnt >= ESC_SENSOR_PERIOD) {
+            // send ESC sensors
+            tableInfo = &frSkyEscDataIdTableInfo;
+            if (tableInfo->index == tableInfo->size) { // end of ESC table, return to other sensors
+                tableInfo->index = 0;
+                smartPortIdCycleCnt = 0;
+                smartPortIdOffset++;
+                if (smartPortIdOffset == getMotorCount() + 1) { // each motor and ESC_SENSOR_COMBINED
+                    smartPortIdOffset = 0;
                 }
             }
-            smartPortIdTableInfo = frSkyDataIdTables[smartPortIdTableCnt];
         }
-        uint16_t id = smartPortIdTableInfo.table[smartPortIdCnt + (smartPortIdCycleCnt % smartPortIdTableInfo.cycleLength)];
-        if (smartPortIdTableInfo.appendEscOffset) {
+        if (smartPortIdCycleCnt < ESC_SENSOR_PERIOD) {
+            // send other sensors
+            tableInfo = &frSkyDataIdTableInfo;
+#endif
+            if (tableInfo->index == tableInfo->size) { // end of table reached, loop back
+                tableInfo->index = 0;
+            }
+#ifdef USE_ESC_SENSOR_TELEMETRY
+        }
+#endif
+        uint16_t id = tableInfo->table[tableInfo->index];
+#ifdef USE_ESC_SENSOR_TELEMETRY
+        if (smartPortIdCycleCnt >= ESC_SENSOR_PERIOD) {
             id += smartPortIdOffset;
         }
-        smartPortIdCnt += smartPortIdTableInfo.cycleLength;
+#endif
+        smartPortIdCycleCnt++;
+        tableInfo->index++;
 
         int32_t tmpi;
         uint32_t tmp2 = 0;
-        static uint8_t t1Cnt = 0;
-        static uint8_t t2Cnt = 0;
+        uint16_t vfasVoltage;
+        uint8_t cellCount;
 
-#ifdef USE_ESC_SENSOR
+#ifdef USE_ESC_SENSOR_TELEMETRY
         escSensorData_t *escData;
 #endif
 
         switch (id) {
             case FSSP_DATAID_VFAS       :
-                if (isBatteryVoltageConfigured()) {
-                    uint16_t vfasVoltage;
-                    if (telemetryConfig()->report_cell_voltage) {
-                        const uint8_t cellCount = getBatteryCellCount();
-                        vfasVoltage = cellCount ? getBatteryVoltage() / cellCount : 0;
-                    } else {
-                        vfasVoltage = getBatteryVoltage();
-                    }
-                    smartPortSendPackage(id, vfasVoltage * 10); // given in 0.1V, convert to volts
-                    *clearToSend = false;
+                vfasVoltage = getBatteryVoltage();
+                if (telemetryConfig()->report_cell_voltage) {
+                    cellCount = getBatteryCellCount();
+                    vfasVoltage = cellCount ? getBatteryVoltage() / cellCount : 0;
                 }
+                smartPortSendPackage(id, vfasVoltage); // given in 0.01V, convert to volts
+                *clearToSend = false;
                 break;
-#ifdef USE_ESC_SENSOR
+#ifdef USE_ESC_SENSOR_TELEMETRY
             case FSSP_DATAID_VFAS1      :
             case FSSP_DATAID_VFAS2      :
             case FSSP_DATAID_VFAS3      :
@@ -527,12 +621,10 @@ void processSmartPortTelemetry(smartPortPayload_t *payload, volatile bool *clear
                 break;
 #endif
             case FSSP_DATAID_CURRENT    :
-                if (isAmperageConfigured()) {
-                    smartPortSendPackage(id, getAmperage() / 10); // given in 10mA steps, unknown requested unit
-                    *clearToSend = false;
-                }
+                smartPortSendPackage(id, getAmperage() / 10); // given in 10mA steps, unknown requested unit
+                *clearToSend = false;
                 break;
-#ifdef USE_ESC_SENSOR
+#ifdef USE_ESC_SENSOR_TELEMETRY
             case FSSP_DATAID_CURRENT1   :
             case FSSP_DATAID_CURRENT2   :
             case FSSP_DATAID_CURRENT3   :
@@ -549,8 +641,10 @@ void processSmartPortTelemetry(smartPortPayload_t *payload, volatile bool *clear
                 break;
             case FSSP_DATAID_RPM        :
                 escData = getEscSensorData(ESC_SENSOR_COMBINED);
-                smartPortSendPackage(id, escData->rpm);
-                *clearToSend = false;
+                if (escData != NULL) {
+                    smartPortSendPackage(id, calcEscRpm(escData->rpm));
+                    *clearToSend = false;
+                }
                 break;
             case FSSP_DATAID_RPM1       :
             case FSSP_DATAID_RPM2       :
@@ -562,14 +656,16 @@ void processSmartPortTelemetry(smartPortPayload_t *payload, volatile bool *clear
             case FSSP_DATAID_RPM8       :
                 escData = getEscSensorData(id - FSSP_DATAID_RPM1);
                 if (escData != NULL) {
-                    smartPortSendPackage(id, escData->rpm);
+                    smartPortSendPackage(id, calcEscRpm(escData->rpm));
                     *clearToSend = false;
                 }
                 break;
             case FSSP_DATAID_TEMP        :
                 escData = getEscSensorData(ESC_SENSOR_COMBINED);
-                smartPortSendPackage(id, escData->temperature);
-                *clearToSend = false;
+                if (escData != NULL) {
+                    smartPortSendPackage(id, escData->temperature);
+                    *clearToSend = false;
+                }
                 break;
             case FSSP_DATAID_TEMP1      :
             case FSSP_DATAID_TEMP2      :
@@ -587,40 +683,31 @@ void processSmartPortTelemetry(smartPortPayload_t *payload, volatile bool *clear
                 break;
 #endif
             case FSSP_DATAID_ALTITUDE   :
-                if (sensors(SENSOR_BARO)) {
-                    smartPortSendPackage(id, getEstimatedAltitude()); // unknown given unit, requested 100 = 1 meter
-                    *clearToSend = false;
-                }
+                smartPortSendPackage(id, getEstimatedAltitudeCm()); // unknown given unit, requested 100 = 1 meter
+                *clearToSend = false;
                 break;
             case FSSP_DATAID_FUEL       :
-                if (isAmperageConfigured()) {
-                    smartPortSendPackage(id, getMAhDrawn()); // given in mAh, unknown requested unit
-                    *clearToSend = false;
-                }
+                smartPortSendPackage(id, getMAhDrawn()); // given in mAh, unknown requested unit
+                *clearToSend = false;
                 break;
-            //case FSSP_DATAID_ADC1       :
-            //case FSSP_DATAID_ADC2       :
-            //case FSSP_DATAID_CAP_USED   :
             case FSSP_DATAID_VARIO      :
-                if (sensors(SENSOR_BARO)) {
-                    smartPortSendPackage(id, getEstimatedVario()); // unknown given unit but requested in 100 = 1m/s
-                    *clearToSend = false;
-                }
+                smartPortSendPackage(id, getEstimatedVario()); // unknown given unit but requested in 100 = 1m/s
+                *clearToSend = false;
                 break;
             case FSSP_DATAID_HEADING    :
                 smartPortSendPackage(id, attitude.values.yaw * 10); // given in 10*deg, requested in 10000 = 100 deg
                 *clearToSend = false;
                 break;
             case FSSP_DATAID_ACCX       :
-                smartPortSendPackage(id, lrintf(100 * acc.accADC[X] / acc.dev.acc_1G)); // Multiply by 100 to show as x.xx g on Taranis
+                smartPortSendPackage(id, lrintf(100 * acc.accADC[X] * acc.dev.acc_1G_rec)); // Multiply by 100 to show as x.xx g on Taranis
                 *clearToSend = false;
                 break;
             case FSSP_DATAID_ACCY       :
-                smartPortSendPackage(id, lrintf(100 * acc.accADC[Y] / acc.dev.acc_1G));
+                smartPortSendPackage(id, lrintf(100 * acc.accADC[Y] * acc.dev.acc_1G_rec));
                 *clearToSend = false;
                 break;
             case FSSP_DATAID_ACCZ       :
-                smartPortSendPackage(id, lrintf(100 * acc.accADC[Z] / acc.dev.acc_1G));
+                smartPortSendPackage(id, lrintf(100 * acc.accADC[Z] * acc.dev.acc_1G_rec));
                 *clearToSend = false;
                 break;
             case FSSP_DATAID_T1         :
@@ -640,46 +727,43 @@ void processSmartPortTelemetry(smartPortPayload_t *payload, volatile bool *clear
                 } else {
                     tmpi += 2;
                 }
-                if (ARMING_FLAG(ARMED))
+                if (ARMING_FLAG(ARMED)) {
                     tmpi += 4;
+                }
 
-                if (FLIGHT_MODE(ANGLE_MODE))
+                if (FLIGHT_MODE(ANGLE_MODE)) {
                     tmpi += 10;
-                if (FLIGHT_MODE(HORIZON_MODE))
+                }
+                if (FLIGHT_MODE(HORIZON_MODE)) {
                     tmpi += 20;
-                if (FLIGHT_MODE(UNUSED_MODE))
+                }
+                if (FLIGHT_MODE(PASSTHRU_MODE)) {
                     tmpi += 40;
-                if (FLIGHT_MODE(PASSTHRU_MODE))
-                    tmpi += 40;
+                }
 
-                if (FLIGHT_MODE(MAG_MODE))
+                if (FLIGHT_MODE(MAG_MODE)) {
                     tmpi += 100;
-                if (FLIGHT_MODE(BARO_MODE))
-                    tmpi += 200;
-                if (FLIGHT_MODE(RANGEFINDER_MODE))
-                    tmpi += 400;
+                }
 
-                if (FLIGHT_MODE(GPS_HOLD_MODE))
-                    tmpi += 1000;
-                if (FLIGHT_MODE(GPS_HOME_MODE))
-                    tmpi += 2000;
-                if (FLIGHT_MODE(HEADFREE_MODE))
+                if (FLIGHT_MODE(HEADFREE_MODE)) {
                     tmpi += 4000;
+                }
 
                 smartPortSendPackage(id, (uint32_t)tmpi);
                 *clearToSend = false;
                 break;
             case FSSP_DATAID_T2         :
-                if (sensors(SENSOR_GPS)) {
 #ifdef USE_GPS
+                if (sensors(SENSOR_GPS)) {
                     // provide GPS lock status
                     smartPortSendPackage(id, (STATE(GPS_FIX) ? 1000 : 0) + (STATE(GPS_FIX_HOME) ? 2000 : 0) + gpsSol.numSat);
                     *clearToSend = false;
-#endif
-                } else if (feature(FEATURE_GPS)) {
+                } else if (featureIsEnabled(FEATURE_GPS)) {
                     smartPortSendPackage(id, 0);
                     *clearToSend = false;
-                } else if (telemetryConfig()->pidValuesAsTelemetry) {
+                } else
+#endif
+                if (telemetryConfig()->pidValuesAsTelemetry) {
                     switch (t2Cnt) {
                         case 0:
                             tmp2 = currentPidProfile->pid[PID_ROLL].P;
@@ -710,10 +794,17 @@ void processSmartPortTelemetry(smartPortPayload_t *payload, volatile bool *clear
                     smartPortSendPackage(id, tmp2);
                     *clearToSend = false;
                 }
+
                 break;
+#if defined(USE_ADC_INTERNAL)
+            case FSSP_DATAID_T11        :
+                smartPortSendPackage(id, getCoreTemperatureCelsius());
+                *clearToSend = false;
+                break;
+#endif
 #ifdef USE_GPS
             case FSSP_DATAID_SPEED      :
-                if (sensors(SENSOR_GPS) && STATE(GPS_FIX)) {
+                if (STATE(GPS_FIX)) {
                     //convert to knots: 1cm/s = 0.0194384449 knots
                     //Speed should be sent in knots/1000 (GPS speed is in cm/s)
                     uint32_t tmpui = gpsSol.groundSpeed * 1944 / 100;
@@ -722,12 +813,12 @@ void processSmartPortTelemetry(smartPortPayload_t *payload, volatile bool *clear
                 }
                 break;
             case FSSP_DATAID_LATLONG    :
-                if (sensors(SENSOR_GPS) && STATE(GPS_FIX)) {
+                if (STATE(GPS_FIX)) {
                     uint32_t tmpui = 0;
                     // the same ID is sent twice, one for longitude, one for latitude
                     // the MSB of the sent uint32_t helps FrSky keep track
                     // the even/odd bit of our counter helps us keep track
-                    if (smartPortIdCnt & 1) {
+                    if (tableInfo->index & 1) {
                         tmpui = abs(gpsSol.llh.lon);  // now we have unsigned value and one bit to spare
                         tmpui = (tmpui + tmpui / 2) / 25 | 0x80000000;  // 6/100 = 1.5/25, division by power of 2 is fast
                         if (gpsSol.llh.lon < 0) tmpui |= 0x40000000;
@@ -742,28 +833,23 @@ void processSmartPortTelemetry(smartPortPayload_t *payload, volatile bool *clear
                 }
                 break;
             case FSSP_DATAID_HOME_DIST  :
-                if (sensors(SENSOR_GPS) && STATE(GPS_FIX)) {
+                if (STATE(GPS_FIX)) {
                     smartPortSendPackage(id, GPS_distanceToHome);
                      *clearToSend = false;
                 }
                 break;
             case FSSP_DATAID_GPS_ALT    :
-                if (sensors(SENSOR_GPS) && STATE(GPS_FIX)) {
-                    smartPortSendPackage(id, gpsSol.llh.alt * 100); // given in 0.1m , requested in 10 = 1m (should be in mm, probably a bug in opentx, tested on 2.0.1.7)
+                if (STATE(GPS_FIX)) {
+                    smartPortSendPackage(id, gpsSol.llh.altCm); // given in 0.01m
                     *clearToSend = false;
                 }
                 break;
 #endif
             case FSSP_DATAID_A4         :
-                if (isBatteryVoltageConfigured()) {
-                    const uint8_t cellCount = getBatteryCellCount();
-                    const uint32_t vfasVoltage = cellCount ? (getBatteryVoltage() * 10 / cellCount) : 0; // given in 0.1V, convert to volts
-                    smartPortSendPackage(id, vfasVoltage);
-                    *clearToSend = false;
-                }
-                break;
-            case FSSP_DATAID_ASPD       :
-                // Air speed. Not supported in BF yet.
+                cellCount = getBatteryCellCount();
+                vfasVoltage = cellCount ? (getBatteryVoltage() / cellCount) : 0; // given in 0.01V, convert to volts
+                smartPortSendPackage(id, vfasVoltage);
+                *clearToSend = false;
                 break;
             default:
                 break;
@@ -779,25 +865,17 @@ static bool serialCheckQueueEmpty(void)
 
 void handleSmartPortTelemetry(void)
 {
-    static bool clearToSend = false;
-    static volatile timeUs_t lastTelemetryFrameReceivedUs;
-    static smartPortPayload_t *payload = NULL;
-
-    const uint32_t requestTimeout = millis() + SMARTPORT_SERVICE_TIMEOUT_MS;
+    const timeUs_t requestTimeout = micros() + SMARTPORT_SERVICE_TIMEOUT_US;
 
     if (telemetryState == TELEMETRY_STATE_INITIALIZED_SERIAL && smartPortSerialPort) {
+        smartPortPayload_t *payload = NULL;
+        bool clearToSend = false;
         while (serialRxBytesWaiting(smartPortSerialPort) > 0 && !payload) {
             uint8_t c = serialRead(smartPortSerialPort);
             payload = smartPortDataReceive(c, &clearToSend, serialCheckQueueEmpty, true);
-            if (payload) {
-                lastTelemetryFrameReceivedUs = micros();
-            }
         }
 
-        if (cmpTimeUs(micros(), lastTelemetryFrameReceivedUs) >= SMARTPORT_MIN_TELEMETRY_RESPONSE_DELAY_US) {
             processSmartPortTelemetry(payload, &clearToSend, &requestTimeout);
-            payload = NULL;
-        }
     }
 }
 #endif

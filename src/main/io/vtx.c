@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include <stdint.h>
 #include <string.h>
 
@@ -53,7 +54,7 @@ PG_RESET_TEMPLATE(vtxSettingsConfig_t, vtxSettingsConfig,
     .power = VTX_SETTINGS_DEFAULT_POWER,
     .freq = VTX_SETTINGS_DEFAULT_FREQ,
     .pitModeFreq = VTX_SETTINGS_DEFAULT_PITMODE_FREQ,
-    .lowPowerDisarm = VTX_SETTINGS_DEFAULT_LOW_POWER_DISARM,
+    .lowPowerDisarm = VTX_LOW_POWER_DISARM_OFF,
 );
 
 typedef enum {
@@ -68,8 +69,16 @@ void vtxInit(void)
 {
     bool settingsUpdated = false;
 
+    vtxDevice_t *vtxDevice = vtxCommonDevice();
+
+    if (!vtxDevice) {
+        // If a device is not registered, we don't have any table to refer.
+        // Don't manipulate settings and just return in this case.
+        return;
+    }
+
     // sync frequency in parameter group when band/channel are specified
-    const uint16_t freq = vtx58_Bandchan2Freq(vtxSettingsConfig()->band, vtxSettingsConfig()->channel);
+    const uint16_t freq = vtxCommonLookupFrequency(vtxDevice, vtxSettingsConfig()->band, vtxSettingsConfig()->channel);
     if (vtxSettingsConfig()->band && freq != vtxSettingsConfig()->freq) {
         vtxSettingsConfigMutable()->freq = freq;
         settingsUpdated = true;
@@ -91,7 +100,7 @@ void vtxInit(void)
     }
 }
 
-static vtxSettingsConfig_t vtxGetSettings(void)
+STATIC_UNIT_TESTED vtxSettingsConfig_t vtxGetSettings(void)
 {
     vtxSettingsConfig_t settings = {
         .band = vtxSettingsConfig()->band,
@@ -103,14 +112,16 @@ static vtxSettingsConfig_t vtxGetSettings(void)
     };
 
 #if defined(VTX_SETTINGS_FREQCMD)
-    if (IS_RC_MODE_ACTIVE(BOXVTXPITMODE) && isModeActivationConditionPresent(BOXVTXPITMODE) && settings.pitModeFreq) {
+    if (IS_RC_MODE_ACTIVE(BOXVTXPITMODE) && settings.pitModeFreq) {
         settings.band = 0;
         settings.freq = settings.pitModeFreq;
         settings.power = VTX_SETTINGS_DEFAULT_POWER;
     }
 #endif
 
-    if (!ARMING_FLAG(ARMED) && settings.lowPowerDisarm && !failsafeIsActive()) {
+    if (!ARMING_FLAG(ARMED) && !failsafeIsActive() &&
+        (settings.lowPowerDisarm == VTX_LOW_POWER_DISARM_ALWAYS ||
+        (settings.lowPowerDisarm == VTX_LOW_POWER_DISARM_UNTIL_FIRST_ARM && !ARMING_FLAG(WAS_EVER_ARMED)))) {
         settings.power = VTX_SETTINGS_DEFAULT_POWER;
     }
 
@@ -165,13 +176,11 @@ static bool vtxProcessPower(vtxDevice_t *vtxDevice)
 
 static bool vtxProcessPitMode(vtxDevice_t *vtxDevice)
 {
-    uint8_t pitOnOff;
-
-    bool        currPmSwitchState;
     static bool prevPmSwitchState = false;
 
+    uint8_t pitOnOff;
     if (!ARMING_FLAG(ARMED) && vtxCommonGetPitMode(vtxDevice, &pitOnOff)) {
-        currPmSwitchState = IS_RC_MODE_ACTIVE(BOXVTXPITMODE);
+        bool currPmSwitchState = IS_RC_MODE_ACTIVE(BOXVTXPITMODE);
 
         if (currPmSwitchState != prevPmSwitchState) {
             prevPmSwitchState = currPmSwitchState;
@@ -182,20 +191,21 @@ static bool vtxProcessPitMode(vtxDevice_t *vtxDevice)
                     return false;
                 }
 #endif
-                if (isModeActivationConditionPresent(BOXVTXPITMODE)) {
-                    if (!pitOnOff) {
-                        vtxCommonSetPitMode(vtxDevice, true);
-                        return true;
-                    }
+                if (!pitOnOff) {
+                    vtxCommonSetPitMode(vtxDevice, true);
+
+                    return true;
                 }
             } else {
                 if (pitOnOff) {
                     vtxCommonSetPitMode(vtxDevice, false);
+
                     return true;
                 }
             }
         }
     }
+
     return false;
 }
 

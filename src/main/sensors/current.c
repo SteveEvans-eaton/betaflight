@@ -1,27 +1,28 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include "stdbool.h"
 #include "stdint.h"
 #include "string.h"
 
-#include <platform.h>
+#include "platform.h"
 #include "build/build_config.h"
 #include "build/debug.h"
 
@@ -85,7 +86,7 @@ void currentMeterReset(currentMeter_t *meter)
 // ADC/Virtual shared
 //
 
-#define IBAT_LPF_FREQ  0.4f
+#define IBAT_LPF_FREQ  2.0f
 static biquadFilter_t adciBatFilter;
 
 #ifndef CURRENT_METER_SCALE_DEFAULT
@@ -139,7 +140,7 @@ currentMeterADCState_t currentMeterADCState;
 void currentMeterADCInit(void)
 {
     memset(&currentMeterADCState, 0, sizeof(currentMeterADCState_t));
-    biquadFilterInitLPF(&adciBatFilter, IBAT_LPF_FREQ, 50000); //50HZ Update
+    biquadFilterInitLPF(&adciBatFilter, IBAT_LPF_FREQ, HZ_TO_INTERVAL_US(50));
 }
 
 void currentMeterADCRefresh(int32_t lastUpdateAt)
@@ -221,8 +222,8 @@ void currentMeterESCRefresh(int32_t lastUpdateAt)
 
     escSensorData_t *escData = getEscSensorData(ESC_SENSOR_COMBINED);
     if (escData && escData->dataAge <= ESC_BATTERY_AGE_MAX) {
-        currentMeterESCState.amperage = escData->current;
-        currentMeterESCState.mAhDrawn = escData->consumption;
+        currentMeterESCState.amperage = escData->current + escSensorConfig()->offset / 10;
+        currentMeterESCState.mAhDrawn = escData->consumption + escSensorConfig()->offset * millis() / (1000.0f * 3600);
     } else {
         currentMeterESCState.amperage = 0;
         currentMeterESCState.mAhDrawn = 0;

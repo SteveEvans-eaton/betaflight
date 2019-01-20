@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 /* Created by jflyper */
 
 #include <stdbool.h>
@@ -35,12 +36,13 @@
 #include "drivers/time.h"
 #include "drivers/vtx_rtc6705.h"
 
+#include "io/vtx.h"
 #include "io/vtx_rtc6705.h"
 #include "io/vtx_string.h"
 
 
 #if defined(USE_CMS) || defined(USE_VTX_COMMON)
-const char * const rtc6705PowerNames[] = {
+const char * rtc6705PowerNames[] = {
     "OFF", "MIN", "MAX"
 };
 #endif
@@ -49,12 +51,6 @@ const char * const rtc6705PowerNames[] = {
 static vtxVTable_t rtc6705VTable;    // Forward
 static vtxDevice_t vtxRTC6705 = {
     .vTable = &rtc6705VTable,
-    .capability.bandCount = VTX_SETTINGS_BAND_COUNT,
-    .capability.channelCount = VTX_SETTINGS_CHANNEL_COUNT,
-    .capability.powerCount = VTX_RTC6705_POWER_COUNT,
-    .bandNames = (char **)vtx58BandNames,
-    .channelNames = (char **)vtx58ChannelNames,
-    .powerNames = (char **)rtc6705PowerNames,
 };
 #endif
 
@@ -63,7 +59,18 @@ static void vtxRTC6705SetFrequency(vtxDevice_t *vtxDevice, uint16_t frequency);
 
 bool vtxRTC6705Init(void)
 {
+    vtxRTC6705.capability.bandCount = VTX_SETTINGS_BAND_COUNT,
+    vtxRTC6705.capability.channelCount = VTX_SETTINGS_CHANNEL_COUNT,
+    vtxRTC6705.capability.powerCount = VTX_RTC6705_POWER_COUNT,
+    vtxRTC6705.frequencyTable = vtxStringFrequencyTable();
+    vtxRTC6705.bandNames = vtxStringBandNames();
+    vtxRTC6705.bandLetters = vtxStringBandLetters();
+    vtxRTC6705.channelNames = vtxStringChannelNames();
+    vtxRTC6705.powerNames = rtc6705PowerNames,
+
     vtxCommonSetDevice(&vtxRTC6705);
+
+    vtxInit();
 
     return true;
 }
@@ -71,7 +78,7 @@ bool vtxRTC6705Init(void)
 bool vtxRTC6705CanUpdate(void)
 {
 #if defined(MAX7456_SPI_INSTANCE) && defined(RTC6705_SPI_INSTANCE) && defined(SPI_SHARED_MAX7456_AND_RTC6705)
-    if (feature(FEATURE_OSD)) {
+    if (featureIsEnabled(FEATURE_OSD)) {
         return !max7456DmaInProgress();
     }
 #endif
@@ -125,7 +132,7 @@ static void vtxRTC6705SetBandAndChannel(vtxDevice_t *vtxDevice, uint8_t band, ui
         if (vtxDevice->powerIndex > 0) {
             vtxDevice->band = band;
             vtxDevice->channel = channel;
-            vtxRTC6705SetFrequency(vtxDevice, vtx58frequencyTable[band-1][channel-1]);
+            vtxRTC6705SetFrequency(vtxDevice, vtxCommonLookupFrequency(vtxDevice, band, channel));
         }
     }
 }

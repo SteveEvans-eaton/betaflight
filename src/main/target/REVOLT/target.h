@@ -1,23 +1,22 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
-
 
 #pragma once
 
@@ -31,7 +30,7 @@
 #endif
 
 
-#define TARGET_DEFAULT_MIXER    MIXER_QUADX_1234
+#define DEFAULT_MIXER           MIXER_QUADX_1234
 
 
 
@@ -49,9 +48,6 @@
 #define SERIALRX_UART           SERIAL_PORT_USART1
 
 #define USE_TARGET_CONFIG
-
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
-
 
 #define INVERTER_PIN_UART1      PC0
 
@@ -84,35 +80,30 @@
 #define I2C1_SDA                PB9
 
 /*----------Gyro Config--------*/
-#define MPU6000_CS_PIN          PA4
-#define MPU6000_SPI_INSTANCE    SPI1
-
-#define MPU6500_CS_PIN          PA4
-#define MPU6500_SPI_INSTANCE    SPI1
-
 #define USE_GYRO
 #define USE_ACC
 
-#define USE_GYRO_MPU6500
 #define USE_GYRO_SPI_MPU6500
-#define GYRO_MPU6500_ALIGN      CW0_DEG
-
-#define USE_ACC_MPU6500
 #define USE_ACC_SPI_MPU6500
-#define ACC_MPU6500_ALIGN       CW0_DEG
 
+#define GYRO_1_CS_PIN           PA4
+#define GYRO_1_SPI_INSTANCE     SPI1
+
+#define GYRO_1_ALIGN            CW0_DEG
+#define ACC_1_ALIGN             CW0_DEG
 
 #define USE_EXTI
-#define MPU_INT_EXTI            PC4
+#define USE_GYRO_EXTI
+#define GYRO_1_EXTI_PIN         PC4
 #define USE_MPU_DATA_READY_SIGNAL
 
 /*----------Flash Config--------*/
-#define M25P16_CS_PIN           PB3
+#define FLASH_CS_PIN            PB3
 
 #if defined(REVOLTOSD)
-#define M25P16_SPI_INSTANCE     SPI2
+#define FLASH_SPI_INSTANCE      SPI2
 #else
-#define M25P16_SPI_INSTANCE     SPI3
+#define FLASH_SPI_INSTANCE      SPI3
 #endif
 
 
@@ -134,7 +125,6 @@
 #define USE_UART1
 #define UART1_RX_PIN            PA10
 #define UART1_TX_PIN            PA9
-#define UART1_AHB1_PERIPHERALS  RCC_AHB1Periph_DMA2
 
 #define USE_UART3
 #define UART3_RX_PIN            PB11
@@ -172,5 +162,5 @@
 #define TARGET_IO_PORTC         0xffff
 #define TARGET_IO_PORTD         (BIT(2))
 
-#define USABLE_TIMER_CHANNEL_COUNT 11
-#define USED_TIMERS             ( TIM_N(3) | TIM_N(4) | TIM_N(5) | TIM_N(8) | TIM_N(11) )
+#define USABLE_TIMER_CHANNEL_COUNT 6
+#define USED_TIMERS             ( TIM_N(2) | TIM_N(4) | TIM_N(8) | TIM_N(11) )

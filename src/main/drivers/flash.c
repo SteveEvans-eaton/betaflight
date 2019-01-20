@@ -1,23 +1,22 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
-
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -26,7 +25,7 @@
 
 #include "build/debug.h"
 
-#ifdef USE_FLASH
+#ifdef USE_FLASH_CHIP
 
 #include "flash.h"
 #include "flash_impl.h"
@@ -41,27 +40,42 @@ static busDevice_t *busdev;
 
 static flashDevice_t flashDevice;
 
+void flashPreInit(const flashConfig_t *flashConfig)
+{
+    spiPreinitRegister(flashConfig->csTag, IOCFG_IPU, 1);
+}
+
 // Read chip identification and send it to device detect
 
 bool flashInit(const flashConfig_t *flashConfig)
 {
     busdev = &busInstance;
-    busdev->bustype = BUSTYPE_SPI;
-    spiBusSetInstance(busdev, spiInstanceByDevice(SPI_CFG_TO_DEV(flashConfig->spiDevice)));
+
     if (flashConfig->csTag) {
         busdev->busdev_u.spi.csnPin = IOGetByTag(flashConfig->csTag);
     } else {
         return false;
     }
 
+    if (!IOIsFreeOrPreinit(busdev->busdev_u.spi.csnPin)) {
+        return false;
+    }
+
+    busdev->bustype = BUSTYPE_SPI;
+    spiBusSetInstance(busdev, spiInstanceByDevice(SPI_CFG_TO_DEV(flashConfig->spiDevice)));
+
     IOInit(busdev->busdev_u.spi.csnPin, OWNER_FLASH_CS, 0);
     IOConfigGPIO(busdev->busdev_u.spi.csnPin, SPI_IO_CS_CFG);
     IOHi(busdev->busdev_u.spi.csnPin);
 
-#ifndef M25P16_SPI_SHARED
+#ifdef USE_SPI_TRANSACTION
+    spiBusTransactionInit(busdev, SPI_MODE3_POL_HIGH_EDGE_2ND, SPI_CLOCK_FAST);
+#else
+#ifndef FLASH_SPI_SHARED
     //Maximum speed for standard READ command is 20mHz, other commands tolerate 25mHz
     //spiSetDivisor(busdev->busdev_u.spi.instance, SPI_CLOCK_FAST);
     spiSetDivisor(busdev->busdev_u.spi.instance, SPI_CLOCK_STANDARD*2);
+#endif
 #endif
 
     flashDevice.busdev = busdev;
@@ -77,7 +91,11 @@ bool flashInit(const flashConfig_t *flashConfig)
     in[1] = 0;
 
     // Clearing the CS bit terminates the command early so we don't have to read the chip UID:
+#ifdef USE_SPI_TRANSACTION
+    spiBusTransactionTransfer(busdev, out, in, sizeof(out));
+#else
     spiBusTransfer(busdev, out, in, sizeof(out));
+#endif
 
     // Manufacturer, memory type, and capacity
     uint32_t chipID = (in[1] << 16) | (in[2] << 8) | (in[3]);
@@ -94,7 +112,7 @@ bool flashInit(const flashConfig_t *flashConfig)
     }
 #endif
 
-    spiPreInitCs(flashConfig->csTag);
+    spiPreinitByTag(flashConfig->csTag);
 
     return false;
 }
@@ -161,4 +179,4 @@ const flashGeometry_t *flashGetGeometry(void)
 
     return &noFlashGeometry;
 }
-#endif // USE_FLASH
+#endif // USE_FLASH_CHIP

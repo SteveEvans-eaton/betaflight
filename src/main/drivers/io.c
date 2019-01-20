@@ -1,22 +1,23 @@
 /*
  * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight and Betaflight are free software: you can redistribute 
- * this software and/or modify this software under the terms of the 
- * GNU General Public License as published by the Free Software 
- * Foundation, either version 3 of the License, or (at your option) 
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
  * Cleanflight and Betaflight are distributed in the hope that they
- * will be useful, but WITHOUT ANY WARRANTY; without even the implied 
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  
- * 
+ * along with this software.
+ *
  * If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include "platform.h"
 
 #include "drivers/io.h"
@@ -274,6 +275,17 @@ resourceOwner_e IOGetOwner(IO_t io)
     return ioRec->owner;
 }
 
+bool IOIsFreeOrPreinit(IO_t io)
+{
+    resourceOwner_e owner = IOGetOwner(io);
+
+    if (owner == OWNER_FREE || owner == OWNER_PREINIT) {
+        return true;
+    }
+
+    return false;
+}
+
 #if defined(STM32F1)
 
 void IOConfigGPIO(IO_t io, ioConfig_t cfg)
@@ -413,3 +425,4 @@ IO_t IOGetByTag(ioTag_t tag)
     offset += ioDefUsedOffset[portIdx];
     return ioRecs + offset;
 }
+
