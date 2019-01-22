@@ -48,7 +48,7 @@
 
 // MPU6500 interrupts
 #define USE_EXTI
-#define USE_GYRO_EXTI
+//#define USE_GYRO_EXTI
 #define GYRO_1_EXTI_PIN         PA15
 #define USE_MPU_DATA_READY_SIGNAL
 
