@@ -60,6 +60,7 @@ bool fakeBaroDetect(baroDev_t *baro)
     fakeTemperature = 2500;   // temperature in 0.01 C = 25 deg
 
     // these are dummy as temperature is measured as part of pressure
+    baro->combined_read = true;
     baro->ut_delay = 10000;
     baro->get_ut = fakeBaroStartGet;
     baro->start_ut = fakeBaroStartGet;

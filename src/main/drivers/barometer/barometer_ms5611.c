@@ -127,6 +127,7 @@ bool ms5611Detect(baroDev_t *baro)
     }
 
     // TODO prom + CRC
+    baro->combined_read = false;
     baro->ut_delay = 10000;
     baro->up_delay = 10000;
     baro->start_ut = ms5611_start_ut;

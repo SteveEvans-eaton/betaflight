@@ -277,6 +277,7 @@ bool lpsDetect(baroDev_t *baro)
 
     lpsReadCommand(busdev, LPS_CTRL1, &temp, 1);
 
+    baro->combined_read = true;
     baro->ut_delay = 1;
     baro->up_delay = 1000000 / 24;
     baro->start_ut = lps_nothing;

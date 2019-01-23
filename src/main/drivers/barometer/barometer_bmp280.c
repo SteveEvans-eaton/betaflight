@@ -131,6 +131,7 @@ bool bmp280Detect(baroDev_t *baro)
     busWriteRegister(busdev, BMP280_CTRL_MEAS_REG, BMP280_MODE);
 
     // these are dummy as temperature is measured as part of pressure
+    baro->combined_read = true;
     baro->ut_delay = 0;
     baro->get_ut = bmp280_get_ut;
     baro->start_ut = bmp280_start_ut;

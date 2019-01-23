@@ -258,6 +258,7 @@ bool qmp6988Detect(baroDev_t *baro)
     busWriteRegister(busdev, QMP6988_CTRL_MEAS_REG, QMP6988_PWR_SAMPLE_MODE);	
 
     // these are dummy as temperature is measured as part of pressure
+    baro->combined_read = true;
     baro->ut_delay = 0;
     baro->get_ut = qmp6988_get_ut;
     baro->start_ut = qmp6988_start_ut;

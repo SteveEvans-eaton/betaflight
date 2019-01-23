@@ -208,6 +208,7 @@ bool bmp085Detect(const bmp085Config_t *config, baroDev_t *baro)
             bmp085.ml_version = BMP085_GET_BITSLICE(data, BMP085_ML_VERSION); /* get ML Version */
             bmp085.al_version = BMP085_GET_BITSLICE(data, BMP085_AL_VERSION); /* get AL Version */
             bmp085_get_cal_param(busdev); /* readout bmp085 calibparam structure */
+            baro->combined_read = false;
             baro->ut_delay = UT_DELAY;
             baro->up_delay = UP_DELAY;
             baro->start_ut = bmp085_start_ut;

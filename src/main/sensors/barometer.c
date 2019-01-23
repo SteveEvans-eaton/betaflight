@@ -311,8 +311,10 @@ static uint32_t recalculateBarometerTotal(uint8_t baroSampleCount, uint32_t pres
 }
 
 typedef enum {
-    BAROMETER_NEEDS_SAMPLES = 0,
-    BAROMETER_NEEDS_CALCULATION
+    BAROMETER_NEEDS_TEMP_SAMPLE = 0,
+    BAROMETER_NEEDS_PRES_START,
+    BAROMETER_NEEDS_PRES_SAMPLE,
+    BAROMETER_NEEDS_TEMP_START
 } barometerState_e;
 
 
@@ -322,28 +324,43 @@ bool isBaroReady(void) {
 
 uint32_t baroUpdate(void)
 {
-    static barometerState_e state = BAROMETER_NEEDS_SAMPLES;
+    static barometerState_e state = BAROMETER_NEEDS_PRES_START;
 
     switch (state) {
         default:
-        case BAROMETER_NEEDS_SAMPLES:
+        case BAROMETER_NEEDS_TEMP_START:
+            baro.dev.start_ut(&baro.dev);
+            state = BAROMETER_NEEDS_TEMP_SAMPLE;
+            return baro.dev.ut_delay;
+            break;
+
+        case BAROMETER_NEEDS_TEMP_SAMPLE:
             baro.dev.get_ut(&baro.dev);
+            state = BAROMETER_NEEDS_PRES_START;
+        break;
+
+        case BAROMETER_NEEDS_PRES_START:
             baro.dev.start_up(&baro.dev);
-            state = BAROMETER_NEEDS_CALCULATION;
+            state = BAROMETER_NEEDS_PRES_SAMPLE;
             return baro.dev.up_delay;
         break;
 
-        case BAROMETER_NEEDS_CALCULATION:
+        case BAROMETER_NEEDS_PRES_SAMPLE:
             baro.dev.get_up(&baro.dev);
-            baro.dev.start_ut(&baro.dev);
+
             baro.dev.calculate(&baroPressure, &baroTemperature);
             baro.baroPressure = baroPressure;
             baro.baroTemperature = baroTemperature;
             baroPressureSum = recalculateBarometerTotal(barometerConfig()->baro_sample_count, baroPressureSum, baroPressure);
-            state = BAROMETER_NEEDS_SAMPLES;
-            return baro.dev.ut_delay;
+            if (baro.dev.combined_read) {
+            	state = BAROMETER_NEEDS_PRES_START;
+            } else {
+            	state = BAROMETER_NEEDS_TEMP_START;
+            }
         break;
     }
+
+    return SCHEDULER_DELAY_LIMIT;
 }
 
 int32_t baroCalculateAltitude(void)
