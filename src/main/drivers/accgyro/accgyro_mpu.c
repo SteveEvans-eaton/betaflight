@@ -41,7 +41,6 @@
 #include "drivers/sensor.h"
 #include "drivers/system.h"
 #include "drivers/time.h"
-#include "drivers/dma.h"
 
 #include "drivers/accgyro/accgyro.h"
 #include "drivers/accgyro/accgyro_mpu3050.h"
@@ -58,7 +57,6 @@
 
 #include "pg/pg.h"
 #include "pg/gyrodev.h"
-#include "pg/pinio.h" // SCEDEBUG
 
 #ifndef MPU_ADDRESS
 #define MPU_ADDRESS             0x68
@@ -108,7 +106,6 @@ static void mpu6050FindRevision(gyroDev_t *gyro)
 #ifdef USE_GYRO_EXTI
 static void mpuIntExtiHandler(extiCallbackRec_t *cb)
 {
-    pinioSet(3, 0); // SCEDEBUG
 #ifdef DEBUG_MPU_DATA_READY_INTERRUPT
     static uint32_t lastCalledAtUs = 0;
     const uint32_t nowUs = micros();
@@ -121,7 +118,6 @@ static void mpuIntExtiHandler(extiCallbackRec_t *cb)
     const uint32_t now2Us = micros();
     debug[1] = (uint16_t)(now2Us - nowUs);
 #endif
-    pinioSet(3, 1); // SCEDEBUG
 }
 
 static void mpuIntExtiInit(gyroDev_t *gyro)
@@ -179,140 +175,12 @@ bool mpuGyroRead(gyroDev_t *gyro)
 }
 
 #ifdef USE_SPI_GYRO
-/* So, this stinks for now, but until there's a per target mechanism to define DMA channel usage...
- *
- * On the Revo Nano, the MPU9250 is on SPI bus 2 using DMA1 thus:
- * RX: Channel 0, Stream 3
- * TX: Channel 0, Stream 4
- */
-#define MPU_DMA_CHANNEL_RX DMA1_Stream3
-#define MPU_DMA_CHANNEL_TX DMA1_Stream4
-//#define MPU_DMA_IRQ_HANDLER_ID DMA1_ST3_HANDLER
-
-#ifdef MPU_DMA_IRQ_HANDLER_ID
-volatile bool dmaTransactionInProgress = false;
-busDevice_t *gyro_busdev;
-
-static bool mpuSpiBusTransfer(busDevice_t *busdev, const uint8_t* tx_buffer, uint8_t* rx_buffer, uint16_t buffer_size)
-{
-    DMA_InitTypeDef DMA_InitStructure;
-    static uint16_t dummy[] = {0xffff};
-
-    while (dmaTransactionInProgress); // Wait for prev DMA transaction
-
-    DMA_DeInit(MPU_DMA_CHANNEL_TX);
-    DMA_DeInit(MPU_DMA_CHANNEL_RX);
-
-    // Common to both channels
-    DMA_StructInit(&DMA_InitStructure);
-    DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)(&(busdev->busdev_u.spi.instance->DR));
-    DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
-    DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
-    DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-    DMA_InitStructure.DMA_BufferSize = buffer_size;
-    DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
-    DMA_InitStructure.DMA_Priority = DMA_Priority_Low;
-
-    // Rx Channel
-
-#ifdef STM32F4
-    DMA_InitStructure.DMA_Memory0BaseAddr = rx_buffer ? (uint32_t)rx_buffer : (uint32_t)(dummy);
-    DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory;
-#else
-    DMA_InitStructure.DMA_MemoryBaseAddr = rx_buffer ? (uint32_t)rx_buffer : (uint32_t)(dummy);
-    DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralSRC;
-#endif
-    DMA_InitStructure.DMA_MemoryInc = rx_buffer ? DMA_MemoryInc_Enable : DMA_MemoryInc_Disable;
-
-    DMA_Init(MPU_DMA_CHANNEL_RX, &DMA_InitStructure);
-    DMA_Cmd(MPU_DMA_CHANNEL_RX, ENABLE);
-
-    // Tx channel
-
-#ifdef STM32F4
-    DMA_InitStructure.DMA_Memory0BaseAddr = tx_buffer ? (uint32_t)tx_buffer : (uint32_t)(dummy);
-    DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral;
-#else
-    DMA_InitStructure.DMA_MemoryBaseAddr = tx_buffer ? (uint32_t)tx_buffer : (uint32_t)(dummy);
-    DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralDST;
-#endif
-    DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
-
-    DMA_Init(MPU_DMA_CHANNEL_TX, &DMA_InitStructure);
-    DMA_Cmd(MPU_DMA_CHANNEL_TX, ENABLE);
-
-    DMA_ITConfig(MPU_DMA_CHANNEL_RX, DMA_IT_TC, ENABLE);
-    DMA_ITConfig(MPU_DMA_CHANNEL_TX, DMA_IT_TC, ENABLE);
-
-    // Enable SPI TX/RX request
-
-    spiBusTransactionBegin(busdev);
-    gyro_busdev = busdev;
-    IOLo(busdev->busdev_u.spi.csnPin);
-    dmaTransactionInProgress = true;
-    pinioSet(2, 0); // SCEDEBUG
-
-    SPI_I2S_DMACmd(busdev->busdev_u.spi.instance,
-            SPI_I2S_DMAReq_Rx |
-            SPI_I2S_DMAReq_Tx, ENABLE);
-
-    while (dmaTransactionInProgress);
-
-    return true;
-}
-
-static void mpu_dma_irq_handler(dmaChannelDescriptor_t* descriptor)
-{
-    if (DMA_GET_FLAG_STATUS(descriptor, DMA_IT_TCIF)) {
-        DMA_Cmd(MPU_DMA_CHANNEL_RX, DISABLE);
-        // Make sure SPI DMA transfer is complete
-
-        while (SPI_I2S_GetFlagStatus (gyro_busdev->busdev_u.spi.instance, SPI_I2S_FLAG_TXE) == RESET) {};
-        while (SPI_I2S_GetFlagStatus (gyro_busdev->busdev_u.spi.instance, SPI_I2S_FLAG_BSY) == SET) {};
-
-        // Empty RX buffer. RX DMA takes care of it if enabled.
-        // This should be done after transmission finish!!!
-
-        while (SPI_I2S_GetFlagStatus(gyro_busdev->busdev_u.spi.instance, SPI_I2S_FLAG_RXNE) == SET) {
-            gyro_busdev->busdev_u.spi.instance->DR;
-        }
-
-        DMA_Cmd(MPU_DMA_CHANNEL_TX, DISABLE);
-
-        DMA_CLEAR_FLAG(descriptor, DMA_IT_TCIF);
-
-        SPI_I2S_DMACmd(gyro_busdev->busdev_u.spi.instance,
-                SPI_I2S_DMAReq_Rx |
-                SPI_I2S_DMAReq_Tx, DISABLE);
-
-        spiBusTransactionEnd(gyro_busdev);
-        IOHi(gyro_busdev->busdev_u.spi.csnPin);
-        dmaTransactionInProgress = false;
-        pinioSet(2, 1); // SCEDEBUG
-    }
-
-    if (DMA_GET_FLAG_STATUS(descriptor, DMA_IT_HTIF)) {
-        DMA_CLEAR_FLAG(descriptor, DMA_IT_HTIF);
-    }
-    if (DMA_GET_FLAG_STATUS(descriptor, DMA_IT_TEIF)) {
-        DMA_CLEAR_FLAG(descriptor, DMA_IT_TEIF);
-    }
-}
-#endif // MPU_DMA_IRQ_HANDLER_ID
-
 bool mpuGyroReadSPI(gyroDev_t *gyro)
 {
     static const uint8_t dataToSend[7] = {MPU_RA_GYRO_XOUT_H | 0x80, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
     uint8_t data[7];
 
-    pinioSet(1, 0); // SCEDEBUG
-#ifdef MPU_DMA_IRQ_HANDLER_ID
-    bool ack = mpuSpiBusTransfer(&gyro->bus, dataToSend, data, 7);
-#else // MPU_DMA_IRQ_HANDLER_ID
-    bool ack = spiBusTransfer(&gyro->bus, dataToSend, data, 7);
-#endif // MPU_DMA_IRQ_HANDLER_ID
-    pinioSet(1, 1); // SCEDEBUG
-
+    const bool ack = spiBusTransfer(&gyro->bus, dataToSend, data, 7);
     if (!ack) {
         return false;
     }
@@ -388,9 +256,6 @@ void mpuPreInit(const struct gyroDeviceConfig_s *config)
 {
 #ifdef USE_SPI_GYRO
     spiPreinitRegister(config->csnTag, IOCFG_IPU, 1);
-#ifdef MPU_DMA_IRQ_HANDLER_ID
-    dmaSetHandler(MPU_DMA_IRQ_HANDLER_ID, mpu_dma_irq_handler, NVIC_PRIO_MPU_DMA, 0);
-#endif
 #else
     UNUSED(config);
 #endif
