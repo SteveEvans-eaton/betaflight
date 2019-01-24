@@ -314,7 +314,12 @@ typedef enum {
     BAROMETER_NEEDS_TEMP_SAMPLE = 0,
     BAROMETER_NEEDS_PRES_START,
     BAROMETER_NEEDS_PRES_SAMPLE,
+<<<<<<< HEAD
     BAROMETER_NEEDS_TEMP_START
+=======
+    BAROMETER_NEEDS_TEMP_START,
+    BAROMETER_NEEDS_CALCULATION
+>>>>>>> fa353f9... Split baro processing from two to four parts as reading the ADC and starting the next sample was taking too long
 } barometerState_e;
 
 
@@ -324,14 +329,21 @@ bool isBaroReady(void) {
 
 uint32_t baroUpdate(void)
 {
+<<<<<<< HEAD
     static barometerState_e state = BAROMETER_NEEDS_PRES_START;
+=======
+    static barometerState_e state = BAROMETER_NEEDS_TEMP_START;
+>>>>>>> fa353f9... Split baro processing from two to four parts as reading the ADC and starting the next sample was taking too long
 
     switch (state) {
         default:
         case BAROMETER_NEEDS_TEMP_START:
             baro.dev.start_ut(&baro.dev);
             state = BAROMETER_NEEDS_TEMP_SAMPLE;
+<<<<<<< HEAD
             return baro.dev.ut_delay;
+=======
+>>>>>>> fa353f9... Split baro processing from two to four parts as reading the ADC and starting the next sample was taking too long
             break;
 
         case BAROMETER_NEEDS_TEMP_SAMPLE:
@@ -347,11 +359,19 @@ uint32_t baroUpdate(void)
 
         case BAROMETER_NEEDS_PRES_SAMPLE:
             baro.dev.get_up(&baro.dev);
+<<<<<<< HEAD
 
+=======
+            state = BAROMETER_NEEDS_CALCULATION;
+            break;
+
+        case BAROMETER_NEEDS_CALCULATION:
+>>>>>>> fa353f9... Split baro processing from two to four parts as reading the ADC and starting the next sample was taking too long
             baro.dev.calculate(&baroPressure, &baroTemperature);
             baro.baroPressure = baroPressure;
             baro.baroTemperature = baroTemperature;
             baroPressureSum = recalculateBarometerTotal(barometerConfig()->baro_sample_count, baroPressureSum, baroPressure);
+<<<<<<< HEAD
             if (baro.dev.combined_read) {
             	state = BAROMETER_NEEDS_PRES_START;
             } else {
@@ -361,6 +381,13 @@ uint32_t baroUpdate(void)
     }
 
     return SCHEDULER_DELAY_LIMIT;
+=======
+            state = BAROMETER_NEEDS_TEMP_START;
+        break;
+    }
+
+    return baro.dev.ut_delay;
+>>>>>>> fa353f9... Split baro processing from two to four parts as reading the ADC and starting the next sample was taking too long
 }
 
 int32_t baroCalculateAltitude(void)
