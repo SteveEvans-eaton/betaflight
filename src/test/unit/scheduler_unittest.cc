@@ -51,10 +51,14 @@ extern "C" {
     bool taskPidRan = false;
     bool taskFilterReady = false;
     bool taskPidReady = false;
+    uint8_t activePidLoopDenom = 1;
 
     // set up micros() to simulate time
     uint32_t simulatedTime = 0;
     uint32_t micros(void) { return simulatedTime; }
+    int32_t clockCyclesToMicros(int32_t x) { return x/10;}
+    int32_t clockMicrosToCycles(int32_t x) { return x*10;}
+    int32_t getCycleCounter(void) {return simulatedTime * 10;}
 
     // set up tasks to take a simulated representative time to execute
     bool gyroFilterReady(void) { return taskFilterReady; }
@@ -353,6 +357,7 @@ TEST(SchedulerUnittest, TestSingleTask)
     }
     setTaskEnabled(TASK_ACCEL, true);
     tasks[TASK_ACCEL].lastExecutedAtUs = 1000;
+    tasks[TASK_ACCEL].lastStatsAtUs = 1000;
     simulatedTime = 2050;
     // run the scheduler and check the task has executed
     scheduler();
@@ -462,6 +467,7 @@ TEST(SchedulerUnittest, TestGyroTask)
 
     // run the scheduler
     scheduler();
+
     // the gyro task indicator should be true and the TASK_FILTER and TASK_PID indicators should be false
     EXPECT_TRUE(taskGyroRan);
     EXPECT_FALSE(taskFilterRan);

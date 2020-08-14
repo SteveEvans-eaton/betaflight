@@ -81,6 +81,8 @@
 
 #include "rx/rx.h"
 
+#include "scheduler/scheduler.h"
+
 #include "sensors/acceleration.h"
 #include "sensors/adcinternal.h"
 #include "sensors/barometer.h"
@@ -90,8 +92,6 @@
 #include "sensors/gyro.h"
 #include "sensors/sensors.h"
 #include "sensors/rangefinder.h"
-
-#include "scheduler/scheduler.h"
 
 #include "telemetry/telemetry.h"
 
@@ -169,16 +169,20 @@ bool taskUpdateRxMainInProgress()
 
 static void taskUpdateRxMain(timeUs_t currentTimeUs)
 {
+    // Where we are using a state machine call ignoreTaskTime() for all states bar one
+    if (rxState != MODES) {
+        ignoreTaskTime();
+    }
+
     switch (rxState) {
     default:
     case CHECK:
-        ignoreTaskTime();
         rxState = PROCESS;
         break;
 
     case PROCESS:
-        ignoreTaskTime();
         if (!processRx(currentTimeUs)) {
+            rxState = CHECK;
             break;
         }
         rxState = MODES;
@@ -190,7 +194,6 @@ static void taskUpdateRxMain(timeUs_t currentTimeUs)
         break;
 
     case UPDATE:
-        ignoreTaskTime();
         // updateRcCommands sets rcCommand, which is needed by updateAltHoldState and updateSonarAltHoldState
         updateRcCommands();
         updateArmingStatus();

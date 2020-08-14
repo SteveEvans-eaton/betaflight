@@ -26,6 +26,8 @@
 
 #include "platform.h"
 
+#include "drivers/accgyro/accgyro.h"
+
 #include "build/build_config.h"
 #include "build/debug.h"
 
@@ -34,14 +36,22 @@
 #include "common/utils.h"
 
 #include "drivers/time.h"
+#include "drivers/accgyro/accgyro.h"
+#include "drivers/system.h"
 
 #include "fc/core.h"
 #include "fc/tasks.h"
 
 #include "scheduler.h"
 
+#include "sensors/gyro_init.h"
+
 #define TASK_AVERAGE_EXECUTE_FALLBACK_US 30 // Default task average time if USE_TASK_STATISTICS is not defined
 #define TASK_AVERAGE_EXECUTE_PADDING_US 5   // Add a little padding to the average execution time
+
+#define MAX_GYRO_SKEW           8   // Max number of us of alignment correction to do per 8 gyro cycles
+#define GYRO_SKEW_DELAY         5   // Offset to gyro skew to ensure gyro data is available before it is ready
+#define MPU6000_SHORT_THRESHOLD 82  // Any interrupt interval less than this will be recognised as the short interval
 
 // DEBUG_SCHEDULER, timings for:
 // 0 - gyroUpdate()
@@ -61,7 +71,8 @@ FAST_DATA_ZERO_INIT uint16_t averageSystemLoadPercent = 0;
 static FAST_DATA_ZERO_INIT int taskQueuePos = 0;
 STATIC_UNIT_TESTED FAST_DATA_ZERO_INIT int taskQueueSize = 0;
 
-static FAST_DATA int periodCalculationBasisOffset = offsetof(task_t, lastExecutedAtUs);
+static bool optimizeSchedRate;
+
 static FAST_DATA_ZERO_INIT bool gyroEnabled;
 
 // No need for a linked list for the queue, since items are only inserted at startup
@@ -280,16 +291,15 @@ void schedulerInit(void)
 
 void schedulerOptimizeRate(bool optimizeRate)
 {
-    periodCalculationBasisOffset = optimizeRate ? offsetof(task_t, lastDesiredAt) : offsetof(task_t, lastExecutedAtUs);
+    optimizeSchedRate = optimizeRate;
 }
 
 inline static timeUs_t getPeriodCalculationBasis(const task_t* task)
 {
-    if (task->staticPriority == TASK_PRIORITY_REALTIME) {
-        return *(timeUs_t*)((uint8_t*)task + periodCalculationBasisOffset);
-    } else {
-        return task->lastExecutedAtUs;
+    if ((task->staticPriority == TASK_PRIORITY_REALTIME)  && (optimizeSchedRate)) {
+            return task->lastDesiredAt;
     }
+    return task->lastExecutedAtUs;
 }
 
 FAST_CODE timeUs_t schedulerExecuteTask(task_t *selectedTask, timeUs_t currentTimeUs)
@@ -299,7 +309,6 @@ FAST_CODE timeUs_t schedulerExecuteTask(task_t *selectedTask, timeUs_t currentTi
     if (selectedTask) {
         currentTask = selectedTask;
         ignoreCurrentTaskTime = false;
-        selectedTask->taskLatestDeltaTimeUs = cmpTimeUs(currentTimeUs, selectedTask->lastExecutedAtUs);
 #if defined(USE_TASK_STATISTICS)
         float period = currentTimeUs - selectedTask->lastExecutedAtUs;
 #endif
@@ -314,6 +323,8 @@ FAST_CODE timeUs_t schedulerExecuteTask(task_t *selectedTask, timeUs_t currentTi
             selectedTask->taskFunc(currentTimeBeforeTaskCallUs);
             taskExecutionTimeUs = micros() - currentTimeBeforeTaskCallUs;
             if (!ignoreCurrentTaskTime) {
+                selectedTask->taskLatestDeltaTimeUs = cmpTimeUs(currentTimeUs, selectedTask->lastStatsAtUs);
+                selectedTask->lastStatsAtUs = currentTimeUs;
                 selectedTask->movingSumExecutionTimeUs += taskExecutionTimeUs - selectedTask->movingSumExecutionTimeUs / TASK_STATS_MOVING_SUM_COUNT;
                 selectedTask->movingSumDeltaTimeUs += selectedTask->taskLatestDeltaTimeUs - selectedTask->movingSumDeltaTimeUs / TASK_STATS_MOVING_SUM_COUNT;
                 selectedTask->maxExecutionTimeUs = MAX(selectedTask->maxExecutionTimeUs, taskExecutionTimeUs);
@@ -326,6 +337,7 @@ FAST_CODE timeUs_t schedulerExecuteTask(task_t *selectedTask, timeUs_t currentTi
         } else
 #endif
         {
+            selectedTask->taskLatestDeltaTimeUs = cmpTimeUs(currentTimeUs, selectedTask->lastExecutedAtUs);
             selectedTask->taskFunc(currentTimeUs);
         }
     }
@@ -348,50 +360,122 @@ static void readSchedulerLocals(task_t *selectedTask, uint8_t selectedTaskDynami
 
 FAST_CODE void scheduler(void)
 {
-#if defined(USE_LATE_TASK_STATISTICS)
-    static task_t *lastTask;
-#endif
     // Cache currentTime
     const timeUs_t schedulerStartTimeUs = micros();
     timeUs_t currentTimeUs = schedulerStartTimeUs;
-    timeUs_t taskExecutionTimeUs = 0;
+    volatile timeUs_t taskExecutionTimeUs = 0;
     task_t *selectedTask = NULL;
     uint16_t selectedTaskDynamicPriority = 0;
     uint16_t waitingTasks = 0;
     bool realtimeTaskRan = false;
     timeDelta_t gyroTaskDelayUs = 0;
 
+    int32_t nextTargetCycles = 0;
+
     if (gyroEnabled) {
         // Realtime gyro/filtering/PID tasks get complete priority
         task_t *gyroTask = getTask(TASK_GYRO);
-        const timeUs_t gyroExecuteTimeUs = getPeriodCalculationBasis(gyroTask) + gyroTask->desiredPeriodUs;
-        gyroTaskDelayUs = cmpTimeUs(gyroExecuteTimeUs, currentTimeUs);  // time until the next expected gyro sample
-        if (gyroTaskDelayUs <= 0) {
-            taskExecutionTimeUs = schedulerExecuteTask(gyroTask, currentTimeUs);
+        static int32_t lastTargetCycles = 0;
+        int32_t nowCycles = getCycleCounter();
+#if defined(UNIT_TEST)
+        lastTargetCycles = clockMicrosToCycles(gyroTask->lastExecutedAtUs);
+#else
+        if (lastTargetCycles == 0) {
+            lastTargetCycles = nowCycles + clockMicrosToCycles(250);
+        }
+#endif
+        int32_t desiredPeriodCycles = clockMicrosToCycles(gyroTask->desiredPeriodUs);
+        nextTargetCycles = lastTargetCycles + desiredPeriodCycles;
+        int32_t gyroTaskDelayClocks = nextTargetCycles - nowCycles;
+        gyroTaskDelayUs = clockCyclesToMicros(gyroTaskDelayClocks);
+
+        // Once close to the timing boundary, poll for it's arrival
+        if (gyroTaskDelayUs < GYRO_TASK_GUARD_LOOP_INTERVAL_US) {
+            do {
+                nowCycles = getCycleCounter();
+                gyroTaskDelayClocks = nextTargetCycles - nowCycles;
+                gyroTaskDelayUs = clockCyclesToMicros(gyroTaskDelayClocks);
+            } while (gyroTaskDelayClocks > 0);
+        }
+
+        if (gyroTaskDelayClocks <= 0) {
+            taskExecutionTimeUs += schedulerExecuteTask(gyroTask, currentTimeUs);
+            realtimeTaskRan = true;
             if (gyroFilterReady()) {
                 taskExecutionTimeUs += schedulerExecuteTask(getTask(TASK_FILTER), currentTimeUs);
             }
             if (pidLoopReady()) {
                 taskExecutionTimeUs += schedulerExecuteTask(getTask(TASK_PID), currentTimeUs);
-            }
-            currentTimeUs = micros();
-            realtimeTaskRan = true;
-
-#if defined(USE_LATE_TASK_STATISTICS)
-           // Late, so make a note of the offending task
-            if (gyroTaskDelayUs < -1) {
-                if (lastTask) {
-                    lastTask->lateCount++;
+                if (activePidLoopDenom > 1) {
+                    realtimeTaskRan = false;
                 }
             }
-            lastTask = NULL;
+            currentTimeUs = micros();
+
+            gyroTaskDelayUs = clockCyclesToMicros(nextTargetCycles) - currentTimeUs;
+
+            lastTargetCycles = nextTargetCycles;
+
+#ifdef USE_GYRO_EXTI
+            gyroDev_t *gyro = gyroActiveDev();
+
+            // Only process the gyro alignment if this task is called when it should have been
+            if ((gyro->gyroModeSPI != NO_EXTI_INT)  && (gyroTaskDelayClocks >= clockMicrosToCycles(-1))) {
+                static uint8_t gyroSyncCount;
+                static int32_t gyroSkewEXTI;
+                static int32_t gyroSkew8EXTI;
+                static int32_t gyroSkewAcc;
+                int32_t mpu6xxxShort = clockMicrosToCycles(MPU6000_SHORT_THRESHOLD);
+
+                // Calculate interval between last two EXTI interrupts
+                int32_t gyroLastCycles = gyro->gyroXferDone - gyro->gyroLastXferDone;
+
+                // This detects the short (~79us) EXTI interval of an MPU6xxx gyro, or times out with other gyros
+                if ((gyroLastCycles < mpu6xxxShort) || (gyroSyncCount-- == 0)) {
+                    int32_t targetOffset = clockMicrosToCycles(GYRO_SKEW_DELAY);
+                    if (gyroLastCycles < mpu6xxxShort) {
+                        gyroSyncCount = 255;
+                    } else {
+                        gyroSyncCount = 7;
+                    }
+                    int32_t maxSkew = clockMicrosToCycles(MAX_GYRO_SKEW);
+
+                    // Determine the phase shift of the gyroTask relative to the EXTI interrupt to apply over 8 cycles
+                    gyroSkew8EXTI = (lastTargetCycles - targetOffset - gyro->gyroLastXferDone) % desiredPeriodCycles;
+                    if (gyroSkew8EXTI > (desiredPeriodCycles / 2)) {
+                        gyroSkew8EXTI -= desiredPeriodCycles;
+                    }
+
+                    if (gyroSkew8EXTI > maxSkew) {
+                        gyroSkew8EXTI = maxSkew;
+                    } else if (gyroSkew8EXTI < -maxSkew) {
+                        gyroSkew8EXTI = -maxSkew;
+                    }
+
+                    gyroSkewAcc = 0;
+                }
+
+                // Use n.3 fixed point arithmetic to spread the skew evenly over 8 cycles
+
+                gyroSkewAcc += gyroSkew8EXTI;
+
+                gyroSkewEXTI = gyroSkewAcc >> 3;
+
+                // Only accumulate the bottom three bits
+                if (gyroSkewAcc < 0) {
+                    gyroSkewAcc |= 0xfffffff8;
+                } else {
+                    gyroSkewAcc &= 0x00000007;
+                }
+
+                // Move the desired start time of the gyroTask
+                lastTargetCycles -= gyroSkewEXTI;
+            }
 #endif
-        }
+       }
     }
 
     if (!gyroEnabled || realtimeTaskRan || (gyroTaskDelayUs > GYRO_TASK_GUARD_INTERVAL_US)) {
-        // The task to be invoked
-
         // Update task dynamic priorities
         for (task_t *task = queueFirst(); task != NULL; task = queueNext()) {
             if (task->staticPriority != TASK_PRIORITY_REALTIME) {
@@ -459,15 +543,35 @@ FAST_CODE void scheduler(void)
 #endif
             // Add in the time spent so far in check functions and the scheduler logic
             taskRequiredTimeUs += cmpTimeUs(micros(), currentTimeUs);
+            // Add in some extra time to be safe
+            taskRequiredTimeUs += GYRO_TASK_GUARD_MARGIN_US;
+
+#if defined(USE_LATE_TASK_STATISTICS)
+            // flag for if we've already exceeded the available time slot
+            bool lateBeforeTask = true;
+#endif  // USE_LATE_TASK_STATISTICS
+
             if (!gyroEnabled || realtimeTaskRan || (taskRequiredTimeUs < gyroTaskDelayUs)) {
+#if defined(USE_LATE_TASK_STATISTICS)
+                int32_t nowCycles = getCycleCounter();
+                int32_t gyroTaskDelayClocks = nextTargetCycles - nowCycles;
+                lateBeforeTask = gyroTaskDelayClocks < clockMicrosToCycles(-1);
+#endif  // USE_LATE_TASK_STATISTICS
                 taskExecutionTimeUs += schedulerExecuteTask(selectedTask, currentTimeUs);
             } else {
                 selectedTask = NULL;
             }
 
 #if defined(USE_LATE_TASK_STATISTICS)
-            lastTask = selectedTask;
-#endif
+            if ( selectedTask && !lateBeforeTask ) {
+                int32_t nowCycles = getCycleCounter();
+                int32_t gyroTaskDelayClocks = nextTargetCycles - nowCycles;
+
+                if (gyroTaskDelayClocks < clockMicrosToCycles(-1)) {
+                    selectedTask->lateCount++ ;
+                }
+            }
+#endif  // USE_LATE_TASK_STATISTICS
         }
     }
 
