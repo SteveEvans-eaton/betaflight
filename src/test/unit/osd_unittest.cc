@@ -1248,4 +1248,5 @@ extern "C" {
     bool isUpright(void) { return true; }
     float getMotorOutputLow(void) { return 1000.0; }
     float getMotorOutputHigh(void) { return 2047.0; }
+    void ignoreTaskTime(void) {}
 }
