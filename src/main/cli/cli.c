@@ -4744,6 +4744,19 @@ static void cliStatus(const char *cmdName, char *cmdline)
             cliPrintf(" gyro %d", pos + 1);
         }
     }
+#ifdef USE_SPI
+#ifdef USE_GYRO_EXTI
+    if (gyroActiveDev()->gyroModeSPI != NO_EXTI_INT) {
+        cliPrintf(" locked");
+    }
+    if (gyroActiveDev()->gyroModeSPI == EXTI_INT_DMA) {
+        cliPrintf(" dma");
+    }
+#endif
+    if (spiGetExtDeviceCount(&gyroActiveDev()->dev) > 1) {
+        cliPrintf(" shared");
+    }
+#endif
     cliPrintLinefeed();
 
 #if defined(USE_SENSOR_NAMES)
