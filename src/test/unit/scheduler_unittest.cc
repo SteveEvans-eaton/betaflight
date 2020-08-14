@@ -51,10 +51,15 @@ extern "C" {
     bool taskPidRan = false;
     bool taskFilterReady = false;
     bool taskPidReady = false;
+    uint8_t activePidLoopDenom = 1;
 
     // set up micros() to simulate time
     uint32_t simulatedTime = 0;
     uint32_t micros(void) { return simulatedTime; }
+    int32_t clockCyclesToMicros(int32_t x) { return x/10;}
+    int32_t clockCyclesTo10thMicros(int32_t x) { return x;}
+    int32_t clockMicrosToCycles(int32_t x) { return x*10;}
+    int32_t getCycleCounter(void) {return simulatedTime * 10;}
 
     // set up tasks to take a simulated representative time to execute
     bool gyroFilterReady(void) { return taskFilterReady; }
@@ -353,6 +358,7 @@ TEST(SchedulerUnittest, TestSingleTask)
     }
     setTaskEnabled(TASK_ACCEL, true);
     tasks[TASK_ACCEL].lastExecutedAtUs = 1000;
+    tasks[TASK_ACCEL].lastStatsAtUs = 1000;
     simulatedTime = 2050;
     // run the scheduler and check the task has executed
     scheduler();
@@ -462,6 +468,7 @@ TEST(SchedulerUnittest, TestGyroTask)
 
     // run the scheduler
     scheduler();
+
     // the gyro task indicator should be true and the TASK_FILTER and TASK_PID indicators should be false
     EXPECT_TRUE(taskGyroRan);
     EXPECT_FALSE(taskFilterRan);
@@ -512,9 +519,6 @@ TEST(SchedulerUnittest, TestGyroLookahead)
 {
     static const uint32_t startTime = 4000;
 
-    // enable task statistics
-    schedulerSetCalulateTaskStatistics(true);
-
     // disable scheduler optimize rate
     schedulerOptimizeRate(false);
 
@@ -528,10 +532,8 @@ TEST(SchedulerUnittest, TestGyroLookahead)
     setTaskEnabled(TASK_GYRO, true);
     setTaskEnabled(TASK_ACCEL, true);
 
-#if defined(USE_TASK_STATISTICS)
     // set the average run time for TASK_ACCEL
     tasks[TASK_ACCEL].movingSumExecutionTimeUs = TEST_UPDATE_ACCEL_TIME * TASK_STATS_MOVING_SUM_COUNT;
-#endif
 
     /* Test that another task will run if there's plenty of time till the next gyro sample time */
     // set it up so TASK_GYRO just ran and TASK_ACCEL is ready to run
