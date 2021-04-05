@@ -233,8 +233,11 @@ void pidInitSetpointDerivativeLpf(uint16_t filterCutoff, uint8_t debugAxis, uint
                 case RC_SMOOTHING_DERIVATIVE_PT1:
                     pt1FilterInit(&pidRuntime.setpointDerivativePt1[axis], pt1FilterGain(filterCutoff, pidRuntime.dT));
                     break;
-                case RC_SMOOTHING_DERIVATIVE_BIQUAD:
-                    biquadFilterInitLPF(&pidRuntime.setpointDerivativeBiquad[axis], filterCutoff, targetPidLooptime);
+                case RC_SMOOTHING_DERIVATIVE_PT2:
+                    pt2FilterInit(&pidRuntime.setpointDerivativePt2[axis], pt2FilterGain(filterCutoff, pidRuntime.dT));
+                    break;
+                case RC_SMOOTHING_DERIVATIVE_PT3:
+                    pt3FilterInit(&pidRuntime.setpointDerivativePt3[axis], pt3FilterGain(filterCutoff, pidRuntime.dT));
                     break;
             }
         }
@@ -249,8 +252,11 @@ void pidUpdateSetpointDerivativeLpf(uint16_t filterCutoff)
                 case RC_SMOOTHING_DERIVATIVE_PT1:
                     pt1FilterUpdateCutoff(&pidRuntime.setpointDerivativePt1[axis], pt1FilterGain(filterCutoff, pidRuntime.dT));
                     break;
-                case RC_SMOOTHING_DERIVATIVE_BIQUAD:
-                    biquadFilterUpdateLPF(&pidRuntime.setpointDerivativeBiquad[axis], filterCutoff, targetPidLooptime);
+                case RC_SMOOTHING_DERIVATIVE_PT2:
+                    pt2FilterUpdateCutoff(&pidRuntime.setpointDerivativePt2[axis], pt2FilterGain(filterCutoff, pidRuntime.dT));
+                    break;
+                case RC_SMOOTHING_DERIVATIVE_PT3:
+                    pt3FilterUpdateCutoff(&pidRuntime.setpointDerivativePt3[axis], pt3FilterGain(filterCutoff, pidRuntime.dT));
                     break;
             }
         }

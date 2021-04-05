@@ -642,8 +642,11 @@ float FAST_CODE applyRcSmoothingDerivativeFilter(int axis, float pidSetpointDelt
             case RC_SMOOTHING_DERIVATIVE_PT1:
                 ret = pt1FilterApply(&pidRuntime.setpointDerivativePt1[axis], pidSetpointDelta);
                 break;
-            case RC_SMOOTHING_DERIVATIVE_BIQUAD:
-                ret = biquadFilterApplyDF1(&pidRuntime.setpointDerivativeBiquad[axis], pidSetpointDelta);
+            case RC_SMOOTHING_DERIVATIVE_PT2:
+                ret = pt2FilterApply(&pidRuntime.setpointDerivativePt2[axis], pidSetpointDelta);
+                break;
+            case RC_SMOOTHING_DERIVATIVE_PT3:
+                ret = pt3FilterApply(&pidRuntime.setpointDerivativePt3[axis], pidSetpointDelta);
                 break;
         }
         if (axis == pidRuntime.rcSmoothingDebugAxis) {

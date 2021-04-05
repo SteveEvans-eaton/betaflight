@@ -413,10 +413,10 @@ static const char * const lookupTableRcSmoothingDebug[] = {
     "ROLL", "PITCH", "YAW", "THROTTLE"
 };
 static const char * const lookupTableRcSmoothingInputType[] = {
-    "PT1", "BIQUAD"
+    "PT1", "PT2", "PT3"
 };
 static const char * const lookupTableRcSmoothingDerivativeType[] = {
-    "OFF", "PT1", "BIQUAD", "AUTO"
+    "OFF", "PT1", "PT2", "PT3", "AUTO"
 };
 #endif // USE_RC_SMOOTHING_FILTER
 

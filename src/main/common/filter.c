@@ -65,6 +65,64 @@ FAST_CODE float pt1FilterApply(pt1Filter_t *filter, float input)
     return filter->state;
 }
 
+// PT2 Low Pass filter
+
+float pt2FilterGain(float f_cut, float dT)
+{
+    float RC = 1 / ( 3.10755f * M_PIf * f_cut); // cutoff 2 * 1.553774 compared to PT1
+    // maths is 2 / sqrt( (2^(1 / n) - 1) ) where n is order
+    return dT / (RC + dT);
+}
+
+void pt2FilterInit(pt2Filter_t *filter, float k)
+{
+    filter->state = 0.0f;
+    filter->state1 = 0.0f;
+    filter->k = k;
+}
+
+void pt2FilterUpdateCutoff(pt2Filter_t *filter, float k)
+{
+    filter->k = k;
+}
+
+FAST_CODE float pt2FilterApply(pt2Filter_t *filter, float input)
+{
+    filter->state1 = filter->state1 + filter->k * (input - filter->state1);
+    filter->state = filter->state + filter->k * (filter->state1 - filter->state);
+    return filter->state;
+}
+
+// PT3 Low Pass filter
+
+float pt3FilterGain(float f_cut, float dT)
+{
+    float RC = 1 / ( 3.923f * M_PIf * f_cut); // cutoff 2* 1.9615 compared to PT1
+    return dT / (RC + dT);
+}
+
+void pt3FilterInit(pt3Filter_t *filter, float k)
+{
+    filter->state = 0.0f;
+    filter->state1 = 0.0f;
+    filter->state2 = 0.0f;
+    filter->k = k;
+}
+
+void pt3FilterUpdateCutoff(pt3Filter_t *filter, float k)
+{
+    filter->k = k;
+}
+
+FAST_CODE float pt3FilterApply(pt3Filter_t *filter, float input)
+{
+    filter->state1 = filter->state1 + filter->k * (input - filter->state1);
+    filter->state2 = filter->state2 + filter->k * (filter->state1 - filter->state2);
+    filter->state = filter->state + filter->k * (filter->state2 - filter->state);
+    return filter->state;
+}
+
+
 // Slew filter with limit
 
 void slewFilterInit(slewFilter_t *filter, float slewLimit, float threshold)
