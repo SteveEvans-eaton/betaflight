@@ -44,14 +44,14 @@ typedef struct laggedMovingAverageCombined_s {
 laggedMovingAverageCombined_t  setpointDeltaAvg[XYZ_AXIS_COUNT];
 
 static float prevSetpointSpeed[XYZ_AXIS_COUNT];
-static float prevAcceleration[XYZ_AXIS_COUNT];
 static float prevRawSetpoint[XYZ_AXIS_COUNT];
-//for smoothing
+static float prevAcceleration[XYZ_AXIS_COUNT];
 static float prevDeltaImpl[XYZ_AXIS_COUNT];
 static float prevBoostAmount[XYZ_AXIS_COUNT];
 
 static uint8_t ffStatus[XYZ_AXIS_COUNT];
 static bool bigStep[XYZ_AXIS_COUNT];
+static bool prevDuplicatePacket[XYZ_AXIS_COUNT];
 static uint8_t averagingCount;
 
 static float ffMaxRateLimit[XYZ_AXIS_COUNT];
@@ -80,71 +80,68 @@ FAST_CODE_NOINLINE float interpolatedSpApply(int axis, bool newRcFrame, ffInterp
         float setpointAccelerationModifier = 1.0f;
 
         if (setpointSpeed == 0 && absRawSetpoint < 0.98f * ffMaxRate[axis]) {
-            // no movement, or sticks at max; ffStatus set
+            // no movement, or sticks at max
             // the max stick check is needed to prevent interpolation when arriving at max sticks
-            if (prevSetpointSpeed[axis] == 0) {
-                // no movement on two packets in a row
-                // do nothing now, but may use status = 3 to smooth following packet
-                ffStatus[axis] = 3;
+            if (prevDuplicatePacket[axis] == true) {
+                // force boost to zero
+                setpointAccelerationModifier = 0.0f;
+                ffStatus[axis] = 10;
             } else {
-                // there was movement on previous packet, now none
-                if (bigStep[axis] == true) {
-                    // previous movement was big; likely an early FrSky packet
-                    // don't project these forward or we get a sustained large spike
-                    ffStatus[axis] = 2;
+                // duplicate or identical data packet
+                if (ffStatus[axis] == 3) {
+                    // packet before the one before was a duplicate also
+                    setpointSpeed = 0.5f * prevSetpointSpeed[axis];
+                    setpointAccelerationModifier = 0.0f;
+                    ffStatus[axis] = 4;
                 } else {
-                    // likely a dropped packet
-                    // interpolate forward using previous setpoint speed and acceleration
-                    setpointSpeed = prevSetpointSpeed[axis] + prevAcceleration[axis];
-                    // use status = 1 to halve the step for the next packet
-                    ffStatus[axis] = 1;
+                    if (bigStep[axis] == true) {
+                        // previous movement was big eg alternate stepping from still, or dual gaps
+                        // will have excess acceleration, zero out boost here and the next one
+                        setpointAccelerationModifier = 0.0f;
+                        ffStatus[axis] = 2;
+                    } else {
+                        // add acceleration only when sticks are moving briskly, to avoid just adding jitter
+                        setpointSpeed =  prevSetpointSpeed[axis] + prevAcceleration[axis] * constrainf(absPrevSetpointSpeed / 3000.0f, 0.0f, 1.0f);
+                        ffStatus[axis] = 1;
+                    }
                 }
             }
+            prevDuplicatePacket[axis] = true;
         } else {
-            // we have movement; let's consider what happened on previous packets, using ffStatus
+            prevDuplicatePacket[axis] = false;
+            // we have movement
             if (ffStatus[axis] != 0) {
-                if (ffStatus[axis] == 1) {
-                    // was interpolated forward after previous dropped packet after small step
-                    // this step is likely twice as tall as it should be
-                    setpointSpeed = setpointSpeed / 2.0f;
+                if (ffStatus[axis] == 1) { // ie 1
+                    // do something to steps after dropouts - will be too big
+                    setpointSpeed *= 0.5f;
+                    setpointAccelerationModifier = 0.0f;
+                    ffStatus[axis] = 3; // watch for a sequential flat point
                 } else if (ffStatus[axis] == 2) {
-                    // we are doing nothing for these to avoid exaggerating the FrSky early packet problem
-                } else if (ffStatus[axis] == 3) {
-                    // movement after nothing on previous two packets
-                    // reduce boost when higher averaging is used to improve slow stick smoothness
-                    setpointAccelerationModifier /= (averagingCount + 1);
+                    setpointAccelerationModifier = 0.0f;
+                    ffStatus[axis] = 0;
+                } else {
+                    ffStatus[axis] = 0;
                 }
-                ffStatus[axis] = 0;
-                // all is normal
             }
+        }
+        
+        if (axis == FD_ROLL) {
+            DEBUG_SET(DEBUG_FF_INTERPOLATED, 2, lrintf(setpointSpeed));
         }
 
         float setpointAcceleration = setpointSpeed - prevSetpointSpeed[axis];
+        prevAcceleration[axis] = setpointAcceleration;
 
-        // determine if this step was a relatively large one, to use when evaluating next packet
-
-        if (absSetpointSpeed > 1.5f * absPrevSetpointSpeed || absPrevSetpointSpeed > 1.5f * absSetpointSpeed){
+        // determine if speed changed a lot, to use when evaluating next packet
+        if (absSetpointSpeed > 1.5f * absPrevSetpointSpeed) {
             bigStep[axis] = true;
         } else {
             bigStep[axis] = false;
         }
 
-        // smooth deadband type suppression of FF jitter when sticks are at or returning to centre
-        // only when ff_averaging is 3 or more, for HD or cinematic flying
-        if (averagingCount > 2) {
-            const float rawSetpointCentred = absRawSetpoint / averagingCount;
-            if (rawSetpointCentred < 1.0f) {
-                setpointSpeed *= rawSetpointCentred;
-                setpointAcceleration *= rawSetpointCentred;
-            }
-        }
-
-        prevAcceleration[axis] = setpointAcceleration;
-     
         // all values afterwards are small numbers
         setpointAcceleration *= pidGetDT();
         setpointDeltaImpl[axis] = setpointSpeed * pidGetDT();
-
 
         const float ffBoostFactor = pidGetFfBoostFactor();
         float boostAmount = 0.0f;
@@ -160,8 +157,8 @@ FAST_CODE_NOINLINE float interpolatedSpApply(int axis, bool newRcFrame, ffInterp
 
         if (axis == FD_ROLL) {
             DEBUG_SET(DEBUG_FF_INTERPOLATED, 0, lrintf(setpointDeltaImpl[axis] * 100));
-            DEBUG_SET(DEBUG_FF_INTERPOLATED, 1, lrintf(setpointAcceleration * 100));
-            DEBUG_SET(DEBUG_FF_INTERPOLATED, 2, lrintf(((setpointDeltaImpl[axis] + boostAmount) * 100)));
+            DEBUG_SET(DEBUG_FF_INTERPOLATED, 1, lrintf(setpointAcceleration * setpointAccelerationModifier * 100));
+//            DEBUG_SET(DEBUG_FF_INTERPOLATED, 2, lrintf(((setpointDeltaImpl[axis] + boostAmount) * 100)));
             DEBUG_SET(DEBUG_FF_INTERPOLATED, 3, ffStatus[axis]);
         }
 
@@ -169,7 +166,6 @@ FAST_CODE_NOINLINE float interpolatedSpApply(int axis, bool newRcFrame, ffInterp
         const float ffSmoothFactor = pidGetFfSmoothFactor();
         boostAmount = prevBoostAmount[axis] + ffSmoothFactor * (boostAmount - prevBoostAmount[axis]);
         prevBoostAmount[axis] = boostAmount;
-
         setpointDeltaImpl[axis] += boostAmount;
 
         // first order smoothing of FF (second order boost filtering since boost filtered twice)
