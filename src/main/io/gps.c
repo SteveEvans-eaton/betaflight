@@ -762,7 +762,7 @@ void gpsUpdate(timeUs_t currentTimeUs)
     if ((endTimeUs - currentTimeUs) > maxTimeUs) {
         maxTimeUs = endTimeUs - currentTimeUs;
     } else {
-        ignoreTaskTime();
+        ignoreTaskShortExecTime();
         // Decay max time
         maxTimeUs--;
     }

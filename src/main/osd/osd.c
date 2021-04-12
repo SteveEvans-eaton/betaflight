@@ -1048,7 +1048,7 @@ void osdUpdate(timeUs_t currentTimeUs)
 
     if (!osdIsReady) {
         if (!displayCheckReady(osdDisplayPort, false)) {
-            ignoreTaskTime();
+            ignoreTaskShortExecTime();
             return;
         }
 
@@ -1061,7 +1061,7 @@ void osdUpdate(timeUs_t currentTimeUs)
 
     // don't touch buffers if DMA transaction is in progress
     if (displayIsTransferInProgress(osdDisplayPort)) {
-        ignoreTaskTime();
+        ignoreTaskShortExecTime();
         return;
     }
 
@@ -1069,7 +1069,7 @@ void osdUpdate(timeUs_t currentTimeUs)
     static uint32_t idlecounter = 0;
     if (!ARMING_FLAG(ARMED)) {
         if (idlecounter++ % 4 != 0) {
-            ignoreTaskTime();
+            ignoreTaskShortExecTime();
             return;
         }
     }
@@ -1092,7 +1092,7 @@ void osdUpdate(timeUs_t currentTimeUs)
         if (doDrawScreen) {
             displayDrawScreen(osdDisplayPort);
         }
-        ignoreTaskTime();
+        ignoreTaskShortExecTime();
     }
     ++counter;
 }

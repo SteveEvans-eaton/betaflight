@@ -67,7 +67,8 @@
 extern task_t tasks[];
 
 static FAST_DATA_ZERO_INIT task_t *currentTask = NULL;
-static FAST_DATA_ZERO_INIT bool ignoreCurrentTaskTime;
+static FAST_DATA_ZERO_INIT bool ignoreCurrentTaskExecRate;
+static FAST_DATA_ZERO_INIT bool ignoreCurrentTaskExecTime;
 
 static FAST_DATA_ZERO_INIT uint32_t totalWaitingTasks;
 static FAST_DATA_ZERO_INIT uint32_t totalWaitingTasksSamples;
@@ -234,10 +235,18 @@ timeDelta_t getTaskDeltaTimeUs(taskId_e taskId)
     }
 }
 
-// Called by tasks executing what are known to be short states
-void ignoreTaskTime()
+// Called by tasks executing what are known to be short states. Tasks should call this routine in all states
+// except the one which takes the longest to execute.
+void ignoreTaskStateTime()
 {
-    ignoreCurrentTaskTime = true;
+    ignoreCurrentTaskExecRate = true;
+    ignoreCurrentTaskExecTime = true;
+}
+
+// Called by tasks without state machines executing in what is known to be a shorter time than peak
+void ignoreTaskShortExecTime()
+{
+    ignoreCurrentTaskExecTime = true;
 }
 
 void schedulerSetCalulateTaskStatistics(bool calculateTaskStatisticsToUse)
@@ -315,7 +324,8 @@ FAST_CODE timeUs_t schedulerExecuteTask(task_t *selectedTask, timeUs_t currentTi
 
     if (selectedTask) {
         currentTask = selectedTask;
-        ignoreCurrentTaskTime = false;
+        ignoreCurrentTaskExecRate = false;
+        ignoreCurrentTaskExecTime = false;
 #if defined(USE_TASK_STATISTICS)
         float period = currentTimeUs - selectedTask->lastExecutedAtUs;
 #endif
@@ -329,13 +339,17 @@ FAST_CODE timeUs_t schedulerExecuteTask(task_t *selectedTask, timeUs_t currentTi
             const timeUs_t currentTimeBeforeTaskCallUs = micros();
             selectedTask->taskFunc(currentTimeBeforeTaskCallUs);
             taskExecutionTimeUs = micros() - currentTimeBeforeTaskCallUs;
-            selectedTask->taskLatestDeltaTimeUs = cmpTimeUs(currentTimeUs, selectedTask->lastStatsAtUs);
-            selectedTask->lastStatsAtUs = currentTimeUs;
-            if (!ignoreCurrentTaskTime) {
+            if (!ignoreCurrentTaskExecRate) {
+                // Record task execution rate and max execution time
+                selectedTask->taskLatestDeltaTimeUs = cmpTimeUs(currentTimeUs, selectedTask->lastStatsAtUs);
+                selectedTask->lastStatsAtUs = currentTimeUs;
+                selectedTask->maxExecutionTimeUs = MAX(selectedTask->maxExecutionTimeUs, taskExecutionTimeUs);
+            }
+            if (!ignoreCurrentTaskExecTime) {
+                // Update estimate of expected task duration
                 selectedTask->movingSumExecutionTimeUs += taskExecutionTimeUs - selectedTask->movingSumExecutionTimeUs / TASK_STATS_MOVING_SUM_COUNT;
                 selectedTask->movingSumDeltaTimeUs += selectedTask->taskLatestDeltaTimeUs - selectedTask->movingSumDeltaTimeUs / TASK_STATS_MOVING_SUM_COUNT;
             }
-            selectedTask->maxExecutionTimeUs = MAX(selectedTask->maxExecutionTimeUs, taskExecutionTimeUs);
             selectedTask->totalExecutionTimeUs += taskExecutionTimeUs;   // time consumed by scheduler + task
             selectedTask->movingAverageCycleTimeUs += 0.05f * (period - selectedTask->movingAverageCycleTimeUs);
 #if defined(USE_LATE_TASK_STATISTICS)
