@@ -48,9 +48,8 @@
 
 #define TASK_AVERAGE_EXECUTE_FALLBACK_US 30 // Default task average time if USE_TASK_STATISTICS is not defined
 #define TASK_AVERAGE_EXECUTE_PADDING_US 5   // Add a little padding to the average execution time
-
-#define MAX_GYRO_SKEW           8   // Max number of us of alignment correction to do per 8 gyro cycles
-#define GYRO_SKEW_DELAY         5   // Offset to gyro skew to ensure gyro data is available before it is ready
+#define GYRO_SKEW_P 0.4             // Gyro lock P control
+#define GYRO_SKEW_DELAY         8   // Offset to gyro skew to ensure gyro data is available before it is ready
 #define MPU6000_SHORT_THRESHOLD 82  // Any interrupt interval less than this will be recognised as the short interval
 
 // DEBUG_SCHEDULER, timings for:
@@ -58,6 +57,14 @@
 // 1 - pidController()
 // 2 - time spent in scheduler
 // 3 - time spent executing check function
+
+// DEBUG_DETERMINISM, requires USE_LATE_TASK_STATISTICS to be defined
+// 0 - Filter task start cycle time in 10th of a us
+// 1 - ID of late task
+// 2 - Amount task is late in in 10th of a us
+// 3 - Gyro lock skew in in 10th of a us
+
+extern task_t tasks[];
 
 static FAST_DATA_ZERO_INIT task_t *currentTask = NULL;
 static FAST_DATA_ZERO_INIT bool ignoreCurrentTaskTime;
@@ -322,13 +329,13 @@ FAST_CODE timeUs_t schedulerExecuteTask(task_t *selectedTask, timeUs_t currentTi
             const timeUs_t currentTimeBeforeTaskCallUs = micros();
             selectedTask->taskFunc(currentTimeBeforeTaskCallUs);
             taskExecutionTimeUs = micros() - currentTimeBeforeTaskCallUs;
+            selectedTask->taskLatestDeltaTimeUs = cmpTimeUs(currentTimeUs, selectedTask->lastStatsAtUs);
+            selectedTask->lastStatsAtUs = currentTimeUs;
             if (!ignoreCurrentTaskTime) {
-                selectedTask->taskLatestDeltaTimeUs = cmpTimeUs(currentTimeUs, selectedTask->lastStatsAtUs);
-                selectedTask->lastStatsAtUs = currentTimeUs;
                 selectedTask->movingSumExecutionTimeUs += taskExecutionTimeUs - selectedTask->movingSumExecutionTimeUs / TASK_STATS_MOVING_SUM_COUNT;
                 selectedTask->movingSumDeltaTimeUs += selectedTask->taskLatestDeltaTimeUs - selectedTask->movingSumDeltaTimeUs / TASK_STATS_MOVING_SUM_COUNT;
-                selectedTask->maxExecutionTimeUs = MAX(selectedTask->maxExecutionTimeUs, taskExecutionTimeUs);
             }
+            selectedTask->maxExecutionTimeUs = MAX(selectedTask->maxExecutionTimeUs, taskExecutionTimeUs);
             selectedTask->totalExecutionTimeUs += taskExecutionTimeUs;   // time consumed by scheduler + task
             selectedTask->movingAverageCycleTimeUs += 0.05f * (period - selectedTask->movingAverageCycleTimeUs);
 #if defined(USE_LATE_TASK_STATISTICS)
@@ -402,6 +409,12 @@ FAST_CODE void scheduler(void)
             taskExecutionTimeUs += schedulerExecuteTask(gyroTask, currentTimeUs);
             realtimeTaskRan = true;
             if (gyroFilterReady()) {
+#if defined(SCHEDULER_DEBUG)
+                // Record the interval between calls to the filter task
+                static int32_t lastRealtimeStartCycles = 0;
+                DEBUG_SET(DEBUG_DETERMINISM, 0, clockCyclesTo10thMicros(nowCycles - lastRealtimeStartCycles));
+                lastRealtimeStartCycles = nowCycles;
+#endif
                 taskExecutionTimeUs += schedulerExecuteTask(getTask(TASK_FILTER), currentTimeUs);
             }
             if (pidLoopReady()) {
@@ -438,7 +451,6 @@ FAST_CODE void scheduler(void)
                     } else {
                         gyroSyncCount = 7;
                     }
-                    int32_t maxSkew = clockMicrosToCycles(MAX_GYRO_SKEW);
 
                     // Determine the phase shift of the gyroTask relative to the EXTI interrupt to apply over 8 cycles
                     gyroSkew8EXTI = (lastTargetCycles - targetOffset - gyro->gyroLastXferDone) % desiredPeriodCycles;
@@ -446,11 +458,8 @@ FAST_CODE void scheduler(void)
                         gyroSkew8EXTI -= desiredPeriodCycles;
                     }
 
-                    if (gyroSkew8EXTI > maxSkew) {
-                        gyroSkew8EXTI = maxSkew;
-                    } else if (gyroSkew8EXTI < -maxSkew) {
-                        gyroSkew8EXTI = -maxSkew;
-                    }
+                    // P controller
+                    gyroSkew8EXTI *= GYRO_SKEW_P;
 
                     gyroSkewAcc = 0;
                 }
@@ -467,6 +476,10 @@ FAST_CODE void scheduler(void)
                 } else {
                     gyroSkewAcc &= 0x00000007;
                 }
+
+#if defined(SCHEDULER_DEBUG)
+                DEBUG_SET(DEBUG_DETERMINISM, 3, clockCyclesTo10thMicros(gyroSkewEXTI));
+#endif
 
                 // Move the desired start time of the gyroTask
                 lastTargetCycles -= gyroSkewEXTI;
@@ -568,6 +581,10 @@ FAST_CODE void scheduler(void)
                 int32_t gyroTaskDelayClocks = nextTargetCycles - nowCycles;
 
                 if (gyroTaskDelayClocks < clockMicrosToCycles(-1)) {
+#if defined(SCHEDULER_DEBUG)
+                    DEBUG_SET(DEBUG_DETERMINISM, 1, selectedTask - tasks);
+                    DEBUG_SET(DEBUG_DETERMINISM, 2, clockCyclesTo10thMicros(gyroTaskDelayClocks));
+#endif
                     selectedTask->lateCount++ ;
                 }
             }

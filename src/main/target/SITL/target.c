@@ -338,6 +338,12 @@ int32_t clockCyclesToMicros(int32_t clockCycles)
 {
     return clockCycles;
 }
+
+int32_t clockCyclesTo10thMicros(int32_t clockCycles)
+{
+    return clockCycles;
+}
+
 int32_t clockMicrosToCycles(int32_t micros)
 {
     return micros;

@@ -57,6 +57,7 @@ extern "C" {
     uint32_t simulatedTime = 0;
     uint32_t micros(void) { return simulatedTime; }
     int32_t clockCyclesToMicros(int32_t x) { return x/10;}
+    int32_t clockCyclesTo10thMicros(int32_t x) { return x;}
     int32_t clockMicrosToCycles(int32_t x) { return x*10;}
     int32_t getCycleCounter(void) {return simulatedTime * 10;}
 

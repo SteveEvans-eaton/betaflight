@@ -28,7 +28,7 @@
 // -Wpadded can be turned on to check padding of structs
 //#pragma GCC diagnostic warning "-Wpadded"
 
-//#define SCHEDULER_DEBUG // define this to use scheduler debug[] values. Undefined by default for performance reasons
+#define SCHEDULER_DEBUG // define this to use scheduler debug[] values. Undefined by default for performance reasons
 
 #define I2C1_OVERCLOCK true
 #define I2C2_OVERCLOCK true
