@@ -46,7 +46,6 @@
 
 #include "sensors/gyro_init.h"
 
-#define GYRO_TASK_GUARD_INTERVAL_US         5   // Don't prioritise tasks if gyro task will be run soon
 #define GYRO_TASK_GUARD_LOOP_INTERVAL_US    2   // Wait at start of scheduler loop if gyroTask is nearly due
 #define TASK_GUARD_MARGIN_US                5   // Add a margin to the amount of time allowed for a task to run
 
@@ -473,7 +472,7 @@ FAST_CODE void scheduler(void)
     nowCycles = getCycleCounter();
     gyroTaskLoopRemainingClocks = nextTargetCycles - nowCycles;
 
-    if (!gyroEnabled || firstSlot || (GYRO_TASK_GUARD_INTERVAL_US < clockCyclesToMicros(gyroTaskLoopRemainingClocks))) {
+    if (!gyroEnabled || firstSlot || (TASK_GUARD_MARGIN_US < clockCyclesToMicros(gyroTaskLoopRemainingClocks))) {
         // Update task dynamic priorities
         for (task_t *task = queueFirst(); task != NULL; task = queueNext()) {
             if (task->staticPriority != TASK_PRIORITY_REALTIME) {
