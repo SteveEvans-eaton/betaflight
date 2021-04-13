@@ -4842,7 +4842,6 @@ static void cliStatus(const char *cmdName, char *cmdline)
     cliPrintLinefeed();
 }
 
-#if defined(USE_TASK_STATISTICS)
 static void cliTasks(const char *cmdName, char *cmdline)
 {
     UNUSED(cmdName);
@@ -4901,7 +4900,6 @@ static void cliTasks(const char *cmdName, char *cmdline)
         schedulerResetCheckFunctionMaxExecutionTime();
     }
 }
-#endif
 
 static void printVersion(const char *cmdName, bool printBoardInfo)
 {
@@ -6558,9 +6556,7 @@ const clicmd_t cmdTable[] = {
         "\treverse <servo> <source> r|n", cliServoMix),
 #endif
     CLI_COMMAND_DEF("status", "show status", NULL, cliStatus),
-#if defined(USE_TASK_STATISTICS)
     CLI_COMMAND_DEF("tasks", "show task stats", NULL, cliTasks),
-#endif
 #ifdef USE_TIMER_MGMT
     CLI_COMMAND_DEF("timer", "show/set timers", "<> | <pin> list | <pin> [af<alternate function>|none|<option(deprecated)>] | list | show", cliTimer),
 #endif
@@ -6805,8 +6801,6 @@ void cliEnter(serialPort_t *serialPort)
     setPrintfSerialPort(cliPort);
     cliWriter = bufWriterInit(cliWriteBuffer, sizeof(cliWriteBuffer), (bufWrite_t)serialWriteBufShim, serialPort);
     cliErrorWriter = cliWriter;
-
-    schedulerSetCalulateTaskStatistics(systemConfig()->task_statistics);
 
 #ifndef MINIMAL_CLI
     cliPrintLine("\r\nEntering CLI Mode, type 'exit' to return, or 'help'");

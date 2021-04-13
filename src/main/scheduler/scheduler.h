@@ -27,13 +27,7 @@
 #define TASK_PERIOD_MS(ms) ((ms) * 1000)
 #define TASK_PERIOD_US(us) (us)
 
-#define GYRO_TASK_GUARD_INTERVAL_US 10      // Don't prioritise tasks if gyro task will be run soon
-#define GYRO_TASK_GUARD_LOOP_INTERVAL_US 2  // Wait at start of scheduler loop if gyroTask is nearly due
-#define GYRO_TASK_GUARD_MARGIN_US 2         // Add a margin to the amount of time allowed for a task to run
-
-#if defined(USE_TASK_STATISTICS)
 #define TASK_STATS_MOVING_SUM_COUNT 32
-#endif
 
 #define LOAD_PERCENTAGE_ONE 100
 
@@ -162,10 +156,8 @@ typedef enum {
 
 typedef struct {
     // Configuration
-#if defined(USE_TASK_STATISTICS)
     const char * taskName;
     const char * subTaskName;
-#endif
     bool (*checkFunc)(timeUs_t currentTimeUs, timeDelta_t currentDeltaTimeUs);
     void (*taskFunc)(timeUs_t currentTimeUs);
     timeDelta_t desiredPeriodUs;        // target period of execution
@@ -179,7 +171,6 @@ typedef struct {
     timeUs_t lastSignaledAtUs;          // time of invocation event for event-driven tasks
     timeUs_t lastDesiredAt;             // time of last desired execution
 
-#if defined(USE_TASK_STATISTICS)
     // Statistics
     float    movingAverageCycleTimeUs;
     timeUs_t movingSumExecutionTimeUs;  // moving sum over 32 samples
@@ -192,7 +183,6 @@ typedef struct {
     uint32_t lateCount;
     timeUs_t execTime;
 #endif
-#endif
 } task_t;
 
 void getCheckFuncInfo(cfCheckFuncInfo_t *checkFuncInfo);
@@ -202,7 +192,6 @@ void setTaskEnabled(taskId_e taskId, bool newEnabledState);
 timeDelta_t getTaskDeltaTimeUs(taskId_e taskId);
 void ignoreTaskStateTime();
 void ignoreTaskShortExecTime();
-void schedulerSetCalulateTaskStatistics(bool calculateTaskStatistics);
 void schedulerResetTaskStatistics(taskId_e taskId);
 void schedulerResetTaskMaxExecutionTime(taskId_e taskId);
 void schedulerResetCheckFunctionMaxExecutionTime(void);
