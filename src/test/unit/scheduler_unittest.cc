@@ -519,9 +519,6 @@ TEST(SchedulerUnittest, TestGyroLookahead)
 {
     static const uint32_t startTime = 4000;
 
-    // enable task statistics
-    schedulerSetCalulateTaskStatistics(true);
-
     // disable scheduler optimize rate
     schedulerOptimizeRate(false);
 
@@ -535,10 +532,8 @@ TEST(SchedulerUnittest, TestGyroLookahead)
     setTaskEnabled(TASK_GYRO, true);
     setTaskEnabled(TASK_ACCEL, true);
 
-#if defined(USE_TASK_STATISTICS)
     // set the average run time for TASK_ACCEL
     tasks[TASK_ACCEL].movingSumExecutionTimeUs = TEST_UPDATE_ACCEL_TIME * TASK_STATS_MOVING_SUM_COUNT;
-#endif
 
     /* Test that another task will run if there's plenty of time till the next gyro sample time */
     // set it up so TASK_GYRO just ran and TASK_ACCEL is ready to run
