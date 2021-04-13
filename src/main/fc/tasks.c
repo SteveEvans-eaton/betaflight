@@ -412,7 +412,6 @@ void tasksInit(void)
 #endif
 }
 
-#if defined(USE_TASK_STATISTICS)
 #define DEFINE_TASK(taskNameParam, subTaskNameParam, checkFuncParam, taskFuncParam, desiredPeriodParam, staticPriorityParam) {  \
     .taskName = taskNameParam, \
     .subTaskName = subTaskNameParam, \
@@ -421,15 +420,6 @@ void tasksInit(void)
     .desiredPeriodUs = desiredPeriodParam, \
     .staticPriority = staticPriorityParam \
 }
-#else
-#define DEFINE_TASK(taskNameParam, subTaskNameParam, checkFuncParam, taskFuncParam, desiredPeriodParam, staticPriorityParam) {  \
-    .checkFunc = checkFuncParam, \
-    .taskFunc = taskFuncParam, \
-    .desiredPeriodUs = desiredPeriodParam, \
-    .staticPriority = staticPriorityParam \
-}
-#endif
-
 
 task_t tasks[TASK_COUNT] = {
     [TASK_SYSTEM] = DEFINE_TASK("SYSTEM", "LOAD", NULL, taskSystemLoad, TASK_PERIOD_HZ(10), TASK_PRIORITY_MEDIUM_HIGH),
