@@ -4899,9 +4899,8 @@ static void cliTasks(const char *cmdName, char *cmdline)
         cliPrintLinef("Total (excluding SERIAL) %25d.%1d%% %4d.%1d%%", maxLoadSum/10, maxLoadSum%10, averageLoadSum/10, averageLoadSum%10);
         if (debugMode == DEBUG_DETERMINISM) {
             extern int32_t schedLoopStartCycles ;
-            extern int32_t taskGuardCycles;
 
-            cliPrintLinef("Scheduler start cycles %d task guard cycles %d", schedLoopStartCycles, taskGuardCycles);
+            cliPrintLinef("Scheduler start cycles %d", schedLoopStartCycles);
         }
         schedulerResetCheckFunctionMaxExecutionTime();
     }
