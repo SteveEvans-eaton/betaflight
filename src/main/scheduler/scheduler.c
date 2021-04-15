@@ -46,8 +46,16 @@
 
 #include "sensors/gyro_init.h"
 
-#define GYRO_TASK_GUARD_LOOP_INTERVAL_US    2   // Wait at start of scheduler loop if gyroTask is nearly due
-#define TASK_GUARD_MARGIN_US                5   // Add a margin to the amount of time allowed for a task to run
+#define SCHED_START_LOOP_MIN_US         4   // Wait at start of scheduler loop if gyroTask is nearly due
+#define SCHED_START_LOOP_MAX_US         12
+#define SCHED_START_LOOP_DOWN_STEP      50  // Fraction of a us to reduce start loop wait
+#define SCHED_START_LOOP_UP_STEP        1   // Fraction of a us to increase start loop wait
+
+#define CHECK_GUARD_MARGIN_US           2   // Add a margin to the amount of time allowed for a check function to run
+#define TASK_GUARD_MARGIN_US            2   // Add a margin to the amount of time allowed for a task function to run
+
+#define TASK_AGE_EXPEDITE_COUNT         1   // Make aged tasks more schedulable
+#define TASK_AGE_EXPEDITE_SCALE         0.90    // By scaling their expected execution time
 
 #define GYRO_SKEW_P             0.4 // Gyro lock P control
 #define GYRO_SKEW_DELAY         8   // Offset to gyro skew to ensure gyro data is available before it is ready
@@ -60,7 +68,7 @@
 // 3 - time spent executing check function
 
 // DEBUG_DETERMINISM, requires USE_LATE_TASK_STATISTICS to be defined
-// 0 - Filter task start cycle time in 10th of a us
+// 0 - Gyro task start cycle time in 10th of a us
 // 1 - ID of late task
 // 2 - Amount task is late in in 10th of a us
 // 3 - Gyro lock skew in in 10th of a us
@@ -70,6 +78,12 @@ extern task_t tasks[];
 static FAST_DATA_ZERO_INIT task_t *currentTask = NULL;
 static FAST_DATA_ZERO_INIT bool ignoreCurrentTaskExecRate;
 static FAST_DATA_ZERO_INIT bool ignoreCurrentTaskExecTime;
+
+int32_t schedLoopStartCycles;
+static int32_t schedLoopStartMinCycles;
+static int32_t schedLoopStartMaxCycles;
+static int32_t schedLoopStartDeltaDownCycles;
+static int32_t schedLoopStartDeltaUpCycles;
 
 static FAST_DATA_ZERO_INIT uint32_t totalWaitingTasks;
 static FAST_DATA_ZERO_INIT uint32_t totalWaitingTasksSamples;
@@ -283,6 +297,12 @@ void schedulerInit(void)
 {
     queueClear();
     queueAdd(getTask(TASK_SYSTEM));
+
+    schedLoopStartMinCycles = clockMicrosToCycles(SCHED_START_LOOP_MIN_US);
+    schedLoopStartMaxCycles = clockMicrosToCycles(SCHED_START_LOOP_MAX_US);
+    schedLoopStartCycles = schedLoopStartMinCycles;
+    schedLoopStartDeltaDownCycles = clockMicrosToCycles(1) / SCHED_START_LOOP_DOWN_STEP;
+    schedLoopStartDeltaUpCycles = clockMicrosToCycles(1) / SCHED_START_LOOP_UP_STEP;
 }
 
 void schedulerOptimizeRate(bool optimizeRate)
@@ -353,16 +373,13 @@ FAST_CODE void scheduler(void)
 {
     // Cache currentTime
     const timeUs_t schedulerStartTimeUs = micros();
-    timeUs_t currentTimeUs = schedulerStartTimeUs;
     int32_t nowCycles;
-    volatile timeUs_t taskExecutionTimeUs = 0;
+    timeUs_t taskExecutionTimeUs = 0;
     task_t *selectedTask = NULL;
     uint16_t selectedTaskDynamicPriority = 0;
     uint16_t waitingTasks = 0;
-    timeDelta_t gyroTaskLoopRemainingUs = 0;
     int32_t nextTargetCycles = 0;
-    int32_t gyroTaskLoopRemainingClocks;
-    bool firstSlot = false;
+    int32_t schedLoopRemainingCycles;
 
     if (gyroEnabled) {
         // Realtime gyro/filtering/PID tasks get complete priority
@@ -378,27 +395,35 @@ FAST_CODE void scheduler(void)
 #endif
         int32_t desiredPeriodCycles = clockMicrosToCycles(gyroTask->desiredPeriodUs);
         nextTargetCycles = lastTargetCycles + desiredPeriodCycles;
-        gyroTaskLoopRemainingClocks = nextTargetCycles - nowCycles;
-        gyroTaskLoopRemainingUs = clockCyclesToMicros(gyroTaskLoopRemainingClocks);
+        schedLoopRemainingCycles = nextTargetCycles - nowCycles;
 
-        // Once close to the timing boundary, poll for it's arrival
-        if (gyroTaskLoopRemainingUs < GYRO_TASK_GUARD_LOOP_INTERVAL_US) {
-            do {
-                nowCycles = getCycleCounter();
-                gyroTaskLoopRemainingClocks = nextTargetCycles - nowCycles;
-                gyroTaskLoopRemainingUs = clockCyclesToMicros(gyroTaskLoopRemainingClocks);
-            } while (gyroTaskLoopRemainingClocks > 0);
+        // Tune out the time lost between completing the last task execution and re-entering the scheduler
+        if ((schedLoopRemainingCycles < schedLoopStartMinCycles) &&
+            (schedLoopStartCycles < schedLoopStartMaxCycles)) {
+            schedLoopStartCycles += schedLoopStartDeltaUpCycles;
         }
 
-        if (gyroTaskLoopRemainingClocks <= 0) {
+        // Once close to the timing boundary, poll for it's arrival
+        if (schedLoopRemainingCycles < schedLoopStartCycles) {
+            if (schedLoopStartCycles > schedLoopStartMinCycles) {
+                schedLoopStartCycles -= schedLoopStartDeltaDownCycles;
+            }
+            do {
+                nowCycles = getCycleCounter();
+                schedLoopRemainingCycles = nextTargetCycles - nowCycles;
+            } while (schedLoopRemainingCycles > 0);
+        }
+
+        if (schedLoopRemainingCycles <= 0) {
+#if defined(SCHEDULER_DEBUG)
+            // Record the interval between scheduling the gyro task
+            static int32_t lastRealtimeStartCycles = 0;
+            DEBUG_SET(DEBUG_DETERMINISM, 0, clockCyclesTo10thMicros(nowCycles - lastRealtimeStartCycles));
+            lastRealtimeStartCycles = nowCycles;
+#endif
+            timeUs_t currentTimeUs = clockCyclesToMicros(nowCycles);
             taskExecutionTimeUs += schedulerExecuteTask(gyroTask, currentTimeUs);
             if (gyroFilterReady()) {
-#if defined(SCHEDULER_DEBUG)
-                // Record the interval between calls to the filter task
-                static int32_t lastRealtimeStartCycles = 0;
-                DEBUG_SET(DEBUG_DETERMINISM, 0, clockCyclesTo10thMicros(nowCycles - lastRealtimeStartCycles));
-                lastRealtimeStartCycles = nowCycles;
-#endif
                 taskExecutionTimeUs += schedulerExecuteTask(getTask(TASK_FILTER), currentTimeUs);
             }
             if (pidLoopReady()) {
@@ -406,15 +431,13 @@ FAST_CODE void scheduler(void)
             }
             currentTimeUs = micros();
 
-            gyroTaskLoopRemainingUs = clockCyclesToMicros(nextTargetCycles) - currentTimeUs;
-            firstSlot = true;
             lastTargetCycles = nextTargetCycles;
 
 #ifdef USE_GYRO_EXTI
             gyroDev_t *gyro = gyroActiveDev();
 
             // Only process the gyro alignment if this task is called when it should have been
-            if ((gyro->gyroModeSPI != NO_EXTI_INT)  && (gyroTaskLoopRemainingClocks >= clockMicrosToCycles(-1))) {
+            if ((gyro->gyroModeSPI != NO_EXTI_INT)  && (schedLoopRemainingCycles >= clockMicrosToCycles(-1))) {
                 static uint8_t gyroSyncCount;
                 static int32_t gyroSkewEXTI;
                 static int32_t gyroSkew8EXTI;
@@ -470,40 +493,52 @@ FAST_CODE void scheduler(void)
     }
 
     nowCycles = getCycleCounter();
-    gyroTaskLoopRemainingClocks = nextTargetCycles - nowCycles;
+    schedLoopRemainingCycles = nextTargetCycles - nowCycles;
 
-    if (!gyroEnabled || firstSlot || (TASK_GUARD_MARGIN_US < clockCyclesToMicros(gyroTaskLoopRemainingClocks))) {
+    const timeUs_t currentTimeUs = micros();
+
+    if (!gyroEnabled || (clockCyclesToMicros(schedLoopRemainingCycles) > CHECK_GUARD_MARGIN_US)) {
         // Update task dynamic priorities
         for (task_t *task = queueFirst(); task != NULL; task = queueNext()) {
             if (task->staticPriority != TASK_PRIORITY_REALTIME) {
                 // Task has checkFunc - event driven
                 if (task->checkFunc) {
-#if defined(SCHEDULER_DEBUG)
-                    const timeUs_t currentTimeBeforeCheckFuncCallUs = micros();
-#else
-                    const timeUs_t currentTimeBeforeCheckFuncCallUs = currentTimeUs;
-#endif
                     // Increase priority for event driven tasks
                     if (task->dynamicPriority > 0) {
                         task->taskAgeCycles = 1 + ((currentTimeUs - task->lastSignaledAtUs) / task->desiredPeriodUs);
                         task->dynamicPriority = 1 + task->staticPriority * task->taskAgeCycles;
                         waitingTasks++;
-                    } else if (task->checkFunc(currentTimeBeforeCheckFuncCallUs, cmpTimeUs(currentTimeBeforeCheckFuncCallUs, task->lastExecutedAtUs))) {
+                    } else if (task->checkFunc(currentTimeUs, cmpTimeUs(currentTimeUs, task->lastExecutedAtUs))) {
+                        const uint32_t checkFuncExecutionTimeUs = micros() - currentTimeUs;
 #if defined(SCHEDULER_DEBUG)
-                        DEBUG_SET(DEBUG_SCHEDULER, 3, micros() - currentTimeBeforeCheckFuncCallUs);
+                        DEBUG_SET(DEBUG_SCHEDULER, 3, checkFuncExecutionTimeUs);
 #endif
-                        const uint32_t checkFuncExecutionTimeUs = micros() - currentTimeBeforeCheckFuncCallUs;
                         checkFuncMovingSumExecutionTimeUs += checkFuncExecutionTimeUs - checkFuncMovingSumExecutionTimeUs / TASK_STATS_MOVING_SUM_COUNT;
                         checkFuncMovingSumDeltaTimeUs += task->taskLatestDeltaTimeUs - checkFuncMovingSumDeltaTimeUs / TASK_STATS_MOVING_SUM_COUNT;
                         checkFuncTotalExecutionTimeUs += checkFuncExecutionTimeUs;   // time consumed by scheduler + task
                         checkFuncMaxExecutionTimeUs = MAX(checkFuncMaxExecutionTimeUs, checkFuncExecutionTimeUs);
-                        task->lastSignaledAtUs = currentTimeBeforeCheckFuncCallUs;
+                        task->lastSignaledAtUs = currentTimeUs;
                         task->taskAgeCycles = 1;
                         task->dynamicPriority = 1 + task->staticPriority;
                         waitingTasks++;
                     } else {
                         task->taskAgeCycles = 0;
                     }
+#if defined(USE_LATE_TASK_STATISTICS)
+                    if ( selectedTask ) {
+                        nowCycles = getCycleCounter();
+                        schedLoopRemainingCycles = nextTargetCycles - nowCycles;
+
+                        if (schedLoopRemainingCycles < 0) {
+#if defined(SCHEDULER_DEBUG)
+                            // Record check task as a negative ID
+                            DEBUG_SET(DEBUG_DETERMINISM, 1, -(task - tasks));
+                            DEBUG_SET(DEBUG_DETERMINISM, 2, clockCyclesTo10thMicros(schedLoopRemainingCycles));
+#endif
+                            task->lateCount++ ;
+                        }
+                    }
+#endif  // USE_LATE_TASK_STATISTICS
                 } else {
                     // Task is time-driven, dynamicPriority is last execution age (measured in desiredPeriods)
                     // Task age is calculated from last execution
@@ -530,37 +565,35 @@ FAST_CODE void scheduler(void)
             selectedTask->execTime = taskRequiredTimeUs;
 #endif
 
-            nowCycles = getCycleCounter();
-            gyroTaskLoopRemainingClocks = nextTargetCycles - nowCycles;
-
-            // Allow a little extra time
+            // Add a little extra as a guard band
             taskRequiredTimeUs += TASK_GUARD_MARGIN_US;
 
-            if (!gyroEnabled ||
-                (firstSlot && ((selectedTask - tasks) == TASK_SERIAL)) ||
-                (taskRequiredTimeUs < clockCyclesToMicros(gyroTaskLoopRemainingClocks))) {
+            timeDelta_t taskRequiredTimeCycles = clockMicrosToCycles(taskRequiredTimeUs);
+
+            nowCycles = getCycleCounter();
+            schedLoopRemainingCycles = nextTargetCycles - nowCycles;
+
+            if (!gyroEnabled || (taskRequiredTimeCycles < schedLoopRemainingCycles)) {
                 taskExecutionTimeUs += schedulerExecuteTask(selectedTask, currentTimeUs);
-            } else {
-                selectedTask = NULL;
-            }
+                nowCycles = getCycleCounter();
+                schedLoopRemainingCycles = nextTargetCycles - nowCycles;
 
 #if defined(USE_LATE_TASK_STATISTICS)
-            if ( selectedTask ) {
-                nowCycles = getCycleCounter();
-                gyroTaskLoopRemainingClocks = nextTargetCycles - nowCycles;
-
-                if (gyroTaskLoopRemainingClocks < 0) {
+                if (schedLoopRemainingCycles < 0) {
 #if defined(SCHEDULER_DEBUG)
                     DEBUG_SET(DEBUG_DETERMINISM, 1, selectedTask - tasks);
-                    DEBUG_SET(DEBUG_DETERMINISM, 2, clockCyclesTo10thMicros(gyroTaskLoopRemainingClocks));
+                    DEBUG_SET(DEBUG_DETERMINISM, 2, clockCyclesTo10thMicros(schedLoopRemainingCycles));
 #endif
                     selectedTask->lateCount++ ;
                 }
-            }
 #endif  // USE_LATE_TASK_STATISTICS
+            } else if (selectedTask->taskAgeCycles > TASK_AGE_EXPEDITE_COUNT) {
+                // If a task has been unable to run, then reduce it's recorded estimated run time to ensure
+                // it's ultimate scheduling
+                selectedTask->movingSumExecutionTimeUs *= TASK_AGE_EXPEDITE_SCALE;
+            }
         }
     }
-
 
 #if defined(SCHEDULER_DEBUG)
     DEBUG_SET(DEBUG_SCHEDULER, 2, micros() - schedulerStartTimeUs - taskExecutionTimeUs); // time spent in scheduler

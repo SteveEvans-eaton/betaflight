@@ -288,14 +288,19 @@ bool mpuGyroReadSPI(gyroDev_t *gyro)
 #ifdef USE_GYRO_EXTI
         // Check that minimum number of interrupts have been detected, that the gyro is
         // the only device on it's SPI bus and that DMA is enabled on that bus
+
+        // Using DMA for gyro access upsets the scheduler on the F4
         if (gyro->detectedEXTI > GYRO_EXTI_DETECT_THRESHOLD) {
+#ifndef STM32F4
             if (spiUseDMA(&gyro->dev)) {
                 // Indicate that the bus on which this device resides may initiate DMA transfers from interrupt context
                 spiSetAtomicWait(&gyro->dev);
                 gyro->gyroModeSPI = EXTI_INT_DMA;
                 gyro->dev.callbackArg = (uint32_t)gyro;
                 gyro->dev.txBuf[0] = (MPU_RA_ACCEL_XOUT_H - 1) | 0x80;
-            } else {
+            } else
+#endif
+            {
                 // Interrupts are present, but no DMA
                 gyro->gyroModeSPI = EXTI_INT;
             }
