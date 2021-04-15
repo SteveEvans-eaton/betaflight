@@ -52,6 +52,7 @@
 #define SCHED_START_LOOP_UP_STEP        1   // Fraction of a us to increase start loop wait
 
 #define CHECK_GUARD_MARGIN_US           2   // Add a margin to the amount of time allowed for a check function to run
+#define TASK_GUARD_MARGIN_US            2   // Add a margin to the amount of time allowed for a task function to run
 
 #define TASK_AGE_EXPEDITE_COUNT         1   // Make aged tasks more schedulable
 #define TASK_AGE_EXPEDITE_SCALE         0.90    // By scaling their expected execution time
@@ -421,9 +422,7 @@ FAST_CODE void scheduler(void)
             lastRealtimeStartCycles = nowCycles;
 #endif
             timeUs_t currentTimeUs = clockCyclesToMicros(nowCycles);
-            pinioSet(0, 1);
             taskExecutionTimeUs += schedulerExecuteTask(gyroTask, currentTimeUs);
-            pinioSet(0, 0);
             if (gyroFilterReady()) {
                 taskExecutionTimeUs += schedulerExecuteTask(getTask(TASK_FILTER), currentTimeUs);
             }
@@ -565,6 +564,10 @@ FAST_CODE void scheduler(void)
 #if defined(USE_LATE_TASK_STATISTICS)
             selectedTask->execTime = taskRequiredTimeUs;
 #endif
+
+            // Add a little extra as a guard band
+            taskRequiredTimeUs += TASK_GUARD_MARGIN_US;
+
             timeDelta_t taskRequiredTimeCycles = clockMicrosToCycles(taskRequiredTimeUs);
 
             nowCycles = getCycleCounter();
