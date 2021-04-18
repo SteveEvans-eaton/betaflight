@@ -4898,9 +4898,9 @@ static void cliTasks(const char *cmdName, char *cmdline)
         cliPrintLinef("RX Check Function %19d %7d %25d", checkFuncInfo.maxExecutionTimeUs, checkFuncInfo.averageExecutionTimeUs, checkFuncInfo.totalExecutionTimeUs / 1000);
         cliPrintLinef("Total (excluding SERIAL) %25d.%1d%% %4d.%1d%%", maxLoadSum/10, maxLoadSum%10, averageLoadSum/10, averageLoadSum%10);
         if (debugMode == DEBUG_DETERMINISM) {
-            extern int32_t schedLoopStartCycles ;
+            extern int32_t schedLoopStartCycles, taskGuardCycles;
 
-            cliPrintLinef("Scheduler start cycles %d", schedLoopStartCycles);
+            cliPrintLinef("Scheduler start cycles %d guard cycles %d", schedLoopStartCycles, taskGuardCycles);
         }
         schedulerResetCheckFunctionMaxExecutionTime();
     }

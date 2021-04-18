@@ -116,8 +116,11 @@ static void mpu6050FindRevision(gyroDev_t *gyro)
 busStatus_e mpuIntcallback(uint32_t arg)
 {
     volatile gyroDev_t *gyro = (gyroDev_t *)arg;
-    gyro->gyroLastXferDone = gyro->gyroXferDone;
-    gyro->gyroXferDone = (int32_t)getCycleCounter();
+    int32_t gyroDmaDuration = (int32_t)getCycleCounter() - gyro->gyroLastEXTI;
+
+    if (gyroDmaDuration > gyro->gyroDmaMaxDuration) {
+        gyro->gyroDmaMaxDuration = gyroDmaDuration;
+    }
 
 #ifdef DEBUG_MPU_DATA_READY_INTERRUPT
     debug[0] = (uint16_t)(gyro->gyroXferDone - gyro->gyroLastXferDone);
@@ -136,6 +139,16 @@ static void mpuIntExtiHandler(extiCallbackRec_t *cb)
 {
     gyroDev_t *gyro = container_of(cb, gyroDev_t, exti);
 
+    // Ideally we'd use a time to capture such information, but unfortunately the port used for EXTI interrupt does
+    // not have an associated timer
+    int32_t nowCycles = getCycleCounter();
+    int32_t gyroLastPeriod = nowCycles - gyro->gyroLastEXTI;
+    // This detects the short (~79us) EXTI interval of an MPU6xxx gyro
+    if ((gyro->gyroShortPeriod == 0) || (gyroLastPeriod < gyro->gyroShortPeriod)) {
+        gyro->gyroSyncEXTI = gyro->gyroLastEXTI + gyro->gyroDmaMaxDuration;
+    }
+    gyro->gyroLastEXTI = nowCycles;
+
     if (gyro->gyroModeSPI == EXTI_INT_DMA) {
         // Non-blocking, so this needs to be static
         static busSegment_t segments[] = {
@@ -148,11 +161,9 @@ static void mpuIntExtiHandler(extiCallbackRec_t *cb)
         if (!spiIsBusy(&gyro->dev)) {
             spiSequence(&gyro->dev, &segments[0]);
         }
-    } else {
-        gyro->gyroLastXferDone = gyro->gyroXferDone;
-        gyro->gyroXferDone = (int32_t)getCycleCounter();
-        gyro->detectedEXTI++;
-   }
+    }
+
+    gyro->detectedEXTI++;
 }
 #else
 static void mpuIntExtiHandler(extiCallbackRec_t *cb)
@@ -289,18 +300,17 @@ bool mpuGyroReadSPI(gyroDev_t *gyro)
         // Check that minimum number of interrupts have been detected, that the gyro is
         // the only device on it's SPI bus and that DMA is enabled on that bus
 
+        // We need at least 5us of offset from the gyro interrupts to ensure accurate timing
+        gyro->gyroDmaMaxDuration = 5;
         // Using DMA for gyro access upsets the scheduler on the F4
         if (gyro->detectedEXTI > GYRO_EXTI_DETECT_THRESHOLD) {
-#ifndef STM32F4
             if (spiUseDMA(&gyro->dev)) {
                 // Indicate that the bus on which this device resides may initiate DMA transfers from interrupt context
                 spiSetAtomicWait(&gyro->dev);
                 gyro->gyroModeSPI = EXTI_INT_DMA;
                 gyro->dev.callbackArg = (uint32_t)gyro;
                 gyro->dev.txBuf[0] = (MPU_RA_ACCEL_XOUT_H - 1) | 0x80;
-            } else
-#endif
-            {
+            } else {
                 // Interrupts are present, but no DMA
                 gyro->gyroModeSPI = EXTI_INT;
             }

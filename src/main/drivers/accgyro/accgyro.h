@@ -105,8 +105,10 @@ typedef struct gyroDev_s {
     } gyroModeSPI;
 #ifdef USE_GYRO_EXTI
     uint32_t detectedEXTI;
-    int32_t gyroXferDone;
-    int32_t gyroLastXferDone;
+    int32_t gyroLastEXTI;
+    int32_t gyroSyncEXTI;
+    int32_t gyroShortPeriod;
+    int32_t gyroDmaMaxDuration;
 #endif
     volatile bool dataReady;
     bool gyro_high_fsr;

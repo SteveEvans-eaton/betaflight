@@ -203,3 +203,4 @@ void taskSystemLoad(timeUs_t currentTimeUs);
 void schedulerOptimizeRate(bool optimizeRate);
 void schedulerEnableGyro(void);
 uint16_t getAverageSystemLoadPercent(void);
+float schedulerGetCycleTimeMultipler(void);
