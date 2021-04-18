@@ -300,9 +300,9 @@ bool mpuGyroReadSPI(gyroDev_t *gyro)
         // Check that minimum number of interrupts have been detected, that the gyro is
         // the only device on it's SPI bus and that DMA is enabled on that bus
 
-        // We need at least 5us of offset from the gyro interrupts to ensure accurate timing
-        gyro->gyroDmaMaxDuration = 5;
-        // Using DMA for gyro access upsets the scheduler on the F4
+        // We need at least 2us of offset from the gyro interrupts to ensure sample data after the interrupt
+        gyro->gyroDmaMaxDuration = 2;
+
         if (gyro->detectedEXTI > GYRO_EXTI_DETECT_THRESHOLD) {
             if (spiUseDMA(&gyro->dev)) {
                 // Indicate that the bus on which this device resides may initiate DMA transfers from interrupt context
