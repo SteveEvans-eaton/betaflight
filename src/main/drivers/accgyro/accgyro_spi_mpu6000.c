@@ -237,8 +237,9 @@ bool mpu6000SpiGyroDetect(gyroDev_t *gyro)
     gyro->initFn = mpu6000SpiGyroInit;
     gyro->readFn = mpuGyroReadSPI;
     gyro->scale = GYRO_SCALE_2000DPS;
+#ifdef USE_GYRO_EXTI
     gyro->gyroShortPeriod = clockMicrosToCycles(MPU6000_SHORT_THRESHOLD);
-
+#endif
     return true;
 }
 
