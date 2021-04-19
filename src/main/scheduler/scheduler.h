@@ -31,6 +31,25 @@
 
 #define LOAD_PERCENTAGE_ONE 100
 
+#define SCHED_START_LOOP_MIN_US         4   // Wait at start of scheduler loop if gyroTask is nearly due
+#define SCHED_START_LOOP_MAX_US         12
+#define SCHED_START_LOOP_DOWN_STEP      50  // Fraction of a us to reduce start loop wait
+#define SCHED_START_LOOP_UP_STEP        1   // Fraction of a us to increase start loop wait
+
+#define TASK_GUARD_MARGIN_MIN_US        2   // Add an amount to the estimate of a task duration
+#define TASK_GUARD_MARGIN_MAX_US        5
+#define TASK_GUARD_MARGIN_DOWN_STEP     50  // Fraction of a us to reduce task guard margin
+#define TASK_GUARD_MARGIN_UP_STEP       1   // Fraction of a us to increase task guard margin
+
+#define CHECK_GUARD_MARGIN_US           2   // Add a margin to the amount of time allowed for a check function to run
+
+#define TASK_AGE_EXPEDITE_COUNT         1   // Make aged tasks more schedulable
+#define TASK_AGE_EXPEDITE_SCALE         0.9 // By scaling their expected execution time
+
+// Gyro interrupt counts over which to measure loop time and skew
+#define GYRO_RATE_COUNT 32000
+#define GYRO_LOCK_COUNT 400
+
 typedef enum {
     TASK_PRIORITY_REALTIME = -1, // Task will be run outside the scheduler logic
     TASK_PRIORITY_IDLE = 0,      // Disables dynamic scheduling, task is executed only if no other task is active this cycle

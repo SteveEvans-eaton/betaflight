@@ -46,25 +46,6 @@
 
 #include "sensors/gyro_init.h"
 
-#define SCHED_START_LOOP_MIN_US         4   // Wait at start of scheduler loop if gyroTask is nearly due
-#define SCHED_START_LOOP_MAX_US         12
-#define SCHED_START_LOOP_DOWN_STEP      50  // Fraction of a us to reduce start loop wait
-#define SCHED_START_LOOP_UP_STEP        1   // Fraction of a us to increase start loop wait
-
-#define TASK_GUARD_MARGIN_MIN_US        2   // Add an amount to the estimate of a task duration
-#define TASK_GUARD_MARGIN_MAX_US        5
-#define TASK_GUARD_MARGIN_DOWN_STEP     50  // Fraction of a us to reduce task guard margin
-#define TASK_GUARD_MARGIN_UP_STEP       1   // Fraction of a us to increase task guard margin
-
-#define CHECK_GUARD_MARGIN_US           2   // Add a margin to the amount of time allowed for a check function to run
-
-#define TASK_AGE_EXPEDITE_COUNT         1   // Make aged tasks more schedulable
-#define TASK_AGE_EXPEDITE_SCALE         0.9 // By scaling their expected execution time
-
-// Gyro interrupt counts over which to measure loop time and skew
-#define GYRO_RATE_COUNT 32000
-#define GYRO_LOCK_COUNT 400
-
 // DEBUG_SCHEDULER, timings for:
 // 0 - gyroUpdate()
 // 1 - pidController()
@@ -392,7 +373,9 @@ static void readSchedulerLocals(task_t *selectedTask, uint8_t selectedTaskDynami
 FAST_CODE void scheduler(void)
 {
     // Cache currentTime
+#if defined(SCHEDULER_DEBUG)
     const timeUs_t schedulerStartTimeUs = micros();
+#endif
     int32_t nowCycles;
     timeUs_t taskExecutionTimeUs = 0;
     task_t *selectedTask = NULL;
@@ -433,11 +416,14 @@ FAST_CODE void scheduler(void)
             if (schedLoopStartCycles > schedLoopStartMinCycles) {
                 schedLoopStartCycles -= schedLoopStartDeltaDownCycles;
             }
+#if !defined(UNIT_TEST)
             do {
                 nowCycles = getCycleCounter();
             } while (nowCycles < nextTargetCycles);
-
+#endif
+#if defined(SCHEDULER_DEBUG)
             DEBUG_SET(DEBUG_DETERMINISM, 0, clockCyclesTo10thMicros(nowCycles - lastRealtimeStartCycles));
+#endif
             lastRealtimeStartCycles = nowCycles;
 
             timeUs_t currentTimeUs = clockCyclesToMicros(nowCycles);
@@ -494,7 +480,9 @@ FAST_CODE void scheduler(void)
 
                     // Move the desired start time of the gyroTask
                     lastTargetCycles -= (accGyroSkew/GYRO_LOCK_COUNT);
+#if defined(SCHEDULER_DEBUG)
                     DEBUG_SET(DEBUG_DETERMINISM, 3, clockCyclesTo10thMicros(accGyroSkew/GYRO_LOCK_COUNT));
+#endif
                     accGyroSkew = 0;
                 }
             }
@@ -581,8 +569,10 @@ FAST_CODE void scheduler(void)
                 }
 #if defined(USE_LATE_TASK_STATISTICS)
                 if (schedLoopRemainingCycles < 0) {
+#if defined(SCHEDULER_DEBUG)
                     DEBUG_SET(DEBUG_DETERMINISM, 1, selectedTask - tasks);
                     DEBUG_SET(DEBUG_DETERMINISM, 2, clockCyclesTo10thMicros(schedLoopRemainingCycles));
+#endif
                     selectedTask->lateCount++ ;
                 }
 #endif  // USE_LATE_TASK_STATISTICS

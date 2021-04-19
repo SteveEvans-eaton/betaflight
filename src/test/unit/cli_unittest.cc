@@ -202,6 +202,10 @@ uint16_t batteryWarningVoltage;
 uint8_t useHottAlarmSoundPeriod (void) { return 0; }
 const uint32_t baudRates[] = {0, 9600, 19200, 38400, 57600, 115200, 230400, 250000, 400000}; // see baudRate_e
 
+uint8_t debugMode;
+int32_t schedLoopStartCycles;
+int32_t taskGuardCycles;
+
 uint32_t micros(void) {return 0;}
 
 int32_t getAmperage(void) {

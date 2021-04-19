@@ -32,7 +32,8 @@ extern "C" {
 
 extern "C" {
     void updateLEDDMABuffer(ledStripFormatRGB_e ledFormat, rgbColor24bpp_t *color, unsigned ledIndex);
-    void ignoreTaskTime(void) {}
+    void ignoreTaskShortExecTime(void) {}
+    void ignoreTaskStateTime(void) {}
 }
 
 TEST(WS2812, updateDMABuffer) {

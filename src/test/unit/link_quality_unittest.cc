@@ -559,5 +559,6 @@ extern "C" {
 
     float getMotorOutputHigh(void) { return 2047.0; }
 
-    void ignoreTaskTime(void) {}
+    void ignoreTaskShortExecTime(void) {}
+    void ignoreTaskStateTime(void) {}
 }
