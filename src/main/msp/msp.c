@@ -1886,7 +1886,9 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
 #if defined(USE_INTERPOLATED_SP)
         sbufWriteU8(dst, currentPidProfile->ff_interpolate_sp);
         sbufWriteU8(dst, currentPidProfile->ff_smooth_factor);
+        sbufWriteU8(dst, currentPidProfile->ff_jitter_factor);
 #else
+        sbufWriteU8(dst, 0);
         sbufWriteU8(dst, 0);
         sbufWriteU8(dst, 0);
 #endif
@@ -2780,7 +2782,9 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
 #if defined(USE_INTERPOLATED_SP)
             currentPidProfile->ff_interpolate_sp = sbufReadU8(src);
             currentPidProfile->ff_smooth_factor = sbufReadU8(src);
+            currentPidProfile->ff_jitter_factor = sbufReadU8(src);
 #else
+            sbufReadU8(src);
             sbufReadU8(src);
             sbufReadU8(src);
 #endif

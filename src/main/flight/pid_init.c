@@ -402,6 +402,7 @@ void pidInitConfig(const pidProfile_t *pidProfile)
 #ifdef USE_INTERPOLATED_SP
     pidRuntime.ffFromInterpolatedSetpoint = pidProfile->ff_interpolate_sp;
     pidRuntime.ffSmoothFactor = 1.0f - ((float)pidProfile->ff_smooth_factor) / 100.0f;
+    pidRuntime.ffJitterFactor = pidProfile->ff_jitter_factor;
     interpolatedSpInit(pidProfile);
 #endif
 
