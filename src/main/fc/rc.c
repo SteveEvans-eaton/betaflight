@@ -61,7 +61,13 @@ typedef float (applyRatesFn)(const int axis, float rcCommandf, const float rcCom
 #ifdef USE_INTERPOLATED_SP
 // Setpoint in degrees/sec before RC-Smoothing is applied
 static float rawSetpoint[XYZ_AXIS_COUNT];
+// Stick deflection [-1.0, 1.0] before RC-Smoothing is applied
+static float rawDeflection[XYZ_AXIS_COUNT];
+static float oldRcCommand[XYZ_AXIS_COUNT];
+static bool isDuplicate[XYZ_AXIS_COUNT];
+float rcCommandDelta[XYZ_AXIS_COUNT];
 #endif
+
 static float setpointRate[3], rcDeflection[3], rcDeflectionAbs[3];
 static float throttlePIDAttenuation;
 static bool reverseMotors = false;
@@ -130,6 +136,11 @@ float getThrottlePIDAttenuation(void)
 float getRawSetpoint(int axis)
 {
     return rawSetpoint[axis];
+}
+
+float getRcCommandDelta(int axis)
+{
+    return rcCommandDelta[axis];
 }
 
 #endif
@@ -683,6 +694,9 @@ FAST_CODE void processRcCommand(void)
 #ifdef USE_INTERPOLATED_SP
     if (isRxDataNew) {
         for (int i = FD_ROLL; i <= FD_YAW; i++) {
+            isDuplicate[i] = (oldRcCommand[i] == rcCommand[i]);
+            rcCommandDelta[i] = fabsf(rcCommand[i] - oldRcCommand[i]);
+            oldRcCommand[i] = rcCommand[i];
             float rcCommandf;
             if (i == FD_YAW) {
                 rcCommandf = rcCommand[i] / rcCommandYawDivider;

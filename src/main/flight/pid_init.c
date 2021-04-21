@@ -407,12 +407,8 @@ void pidInitConfig(const pidProfile_t *pidProfile)
 
 #ifdef USE_INTERPOLATED_SP
     pidRuntime.ffFromInterpolatedSetpoint = pidProfile->ff_interpolate_sp;
-    if (pidProfile->ff_smooth_factor){ 
-            pidRuntime.ffSmoothFactor = 1.0f - ((float)pidProfile->ff_smooth_factor) / 100.0f;
-    } else {
-        // set automatically according to boost amount, limit to 0.5 for auto
-        pidRuntime.ffSmoothFactor = MAX(0.5f, 1.0f - ((float)pidProfile->ff_boost) * 2.0f / 100.0f);
-    }
+    pidRuntime.ffSmoothFactor = 1.0f - ((float)pidProfile->ff_smooth_factor) / 100.0f;
+    pidRuntime.ffJitterFactor = pidProfile->ff_jitter_factor;
     interpolatedSpInit(pidProfile);
 #endif
 
