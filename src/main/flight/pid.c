@@ -267,6 +267,7 @@ float pidGetFfSmoothFactor()
 {
     return pidRuntime.ffSmoothFactor;
 }
+
 float pidGetFfJitterFactor()
 {
     return pidRuntime.ffJitterFactor;
@@ -643,17 +644,7 @@ float FAST_CODE applyRcSmoothingDerivativeFilter(int axis, float pidSetpointDelt
         DEBUG_SET(DEBUG_RC_SMOOTHING, 1, lrintf(pidSetpointDelta * 100.0f));
     }
     if (pidRuntime.setpointDerivativeLpfInitialized) {
-        switch (pidRuntime.rcSmoothingFilterType) {
-            case RC_SMOOTHING_DERIVATIVE_PT1:
-                ret = pt1FilterApply(&pidRuntime.setpointDerivativePt1[axis], pidSetpointDelta);
-                break;
-            case RC_SMOOTHING_DERIVATIVE_PT2:
-                ret = pt2FilterApply(&pidRuntime.setpointDerivativePt2[axis], pidSetpointDelta);
-                break;
-            case RC_SMOOTHING_DERIVATIVE_PT3:
-                ret = pt3FilterApply(&pidRuntime.setpointDerivativePt3[axis], pidSetpointDelta);
-                break;
-        }
+        ret = pt3FilterApply(&pidRuntime.setpointDerivativePt3[axis], pidSetpointDelta);
         if (axis == pidRuntime.rcSmoothingDebugAxis) {
             DEBUG_SET(DEBUG_RC_SMOOTHING, 2, lrintf(ret * 100.0f));
         }

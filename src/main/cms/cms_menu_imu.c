@@ -628,7 +628,7 @@ static const OSD_Entry cmsx_menuProfileOtherEntries[] = {
 #ifdef USE_INTERPOLATED_SP
     { "FF MODE",       OME_TAB,    NULL, &(OSD_TAB_t)    { &cmsx_ff_interpolate_sp,  4, lookupTableInterpolatedSetpoint}, 0 },
     { "FF SMOOTHNESS", OME_UINT8,  NULL, &(OSD_UINT8_t)  { &cmsx_ff_smooth_factor,     0,     75,   1  }   , 0 },
-    { "FF Jitter",     OME_UINT8,  NULL, &(OSD_UINT8_t)  { &cmsx_ff_jitter_factor,     0,     20,   1  }   , 0 },
+    { "FF JITTER",     OME_UINT8,  NULL, &(OSD_UINT8_t)  { &cmsx_ff_jitter_factor,     0,     20,   1  }   , 0 },
 #endif
     { "FF BOOST",    OME_UINT8,  NULL, &(OSD_UINT8_t)  { &cmsx_ff_boost,               0,     50,   1  }   , 0 },
     { "ANGLE STR",   OME_UINT8,  NULL, &(OSD_UINT8_t)  { &cmsx_angleStrength,          0,    200,   1  }   , 0 },

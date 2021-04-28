@@ -69,8 +69,11 @@ FAST_CODE float pt1FilterApply(pt1Filter_t *filter, float input)
 
 float pt2FilterGain(float f_cut, float dT)
 {
-    float RC = 1 / ( 3.10755f * M_PIf * f_cut); // cutoff 2 * 1.553774 compared to PT1
-    // maths is 2 / sqrt( (2^(1 / n) - 1) ) where n is order
+    const float order = 2.0f;
+    const float orderCutoffCorrection = (1 / sqrtf(powf(2, 1.0f / (order)) - 1));
+    float RC = 1 / ( 2 * orderCutoffCorrection * M_PIf * f_cut);
+    //float RC = 1 / ( 2 * 1.553773974f * M_PIf * f_cut);
+    // where 1.553773974 = 1 / sqrt( (2^(1 / order) - 1) ) and order is 2
     return dT / (RC + dT);
 }
 
@@ -97,7 +100,11 @@ FAST_CODE float pt2FilterApply(pt2Filter_t *filter, float input)
 
 float pt3FilterGain(float f_cut, float dT)
 {
-    float RC = 1 / ( 3.923f * M_PIf * f_cut); // cutoff 2* 1.9615 compared to PT1
+    const float order = 3.0f;
+    const float orderCutoffCorrection = (1 / sqrtf(powf(2, 1.0f / (order)) - 1));
+    float RC = 1 / ( 2 * orderCutoffCorrection * M_PIf * f_cut);
+    // float RC = 1 / ( 2 * 1.961459177f * M_PIf * f_cut);
+    // where 1.961459177 = 1 / sqrt( (2^(1 / order) - 1) ) and order is 3
     return dT / (RC + dT);
 }
 

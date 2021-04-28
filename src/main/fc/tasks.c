@@ -183,6 +183,7 @@ static void taskUpdateRxMain(timeUs_t currentTimeUs)
     case PROCESS:
         if (!processRx(currentTimeUs)) {
             rxState = CHECK;
+            
             break;
         }
         rxState = MODES;
