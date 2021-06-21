@@ -291,27 +291,6 @@ void osdAnalyzeActiveElements(void)
     osdDrawActiveElementsBackground(osdDisplayPort);
 }
 
-static void osdDrawElements(void)
-{
-    // Hide OSD when OSDSW mode is active
-    if (IS_RC_MODE_ACTIVE(BOXOSD)) {
-        displayClearScreen(osdDisplayPort);
-        return;
-    }
-
-    if (backgroundLayerSupported) {
-        // Background layer is supported, overlay it onto the foreground
-        // so that we only need to draw the active parts of the elements.
-        displayLayerCopy(osdDisplayPort, DISPLAYPORT_LAYER_FOREGROUND, DISPLAYPORT_LAYER_BACKGROUND);
-    } else {
-        // Background layer not supported, just clear the foreground in preparation
-        // for drawing the elements including their backgrounds.
-        displayClearScreen(osdDisplayPort);
-    }
-
-    osdDrawActiveElements(osdDisplayPort);
-}
-
 const uint16_t osdTimerDefault[OSD_TIMER_COUNT] = {
         OSD_TIMER(OSD_TIMER_SRC_ON, OSD_TIMER_PREC_SECOND, 10),
         OSD_TIMER(OSD_TIMER_SRC_TOTAL_ARMED, OSD_TIMER_PREC_SECOND, 10)
@@ -474,10 +453,6 @@ void osdInit(displayPort_t *osdDisplayPortToUse, osdDisplayPortDevice_e displayP
 #ifdef USE_CMS
     cmsDisplayPortRegister(osdDisplayPort);
 #endif
-
-    if (displayCheckReady(osdDisplayPort, true)) {
-        osdCompleteInitialization();
-    }
 }
 
 static void osdResetStats(void)
@@ -936,11 +911,12 @@ static timeDelta_t osdShowArmed(void)
     return ret;
 }
 
-STATIC_UNIT_TESTED void osdRefresh(timeUs_t currentTimeUs)
+static bool osdStatsVisible = false;
+static bool osdStatsEnabled = false;
+
+STATIC_UNIT_TESTED void osdDrawStats1(timeUs_t currentTimeUs)
 {
     static timeUs_t lastTimeUs = 0;
-    static bool osdStatsEnabled = false;
-    static bool osdStatsVisible = false;
     static timeUs_t osdStatsRefreshTimeUs;
 
     // detect arm/disarm
@@ -962,7 +938,6 @@ STATIC_UNIT_TESTED void osdRefresh(timeUs_t currentTimeUs)
 
         armState = ARMING_FLAG(ARMED);
     }
-
 
     if (ARMING_FLAG(ARMED)) {
         osdUpdateStats();
@@ -991,7 +966,10 @@ STATIC_UNIT_TESTED void osdRefresh(timeUs_t currentTimeUs)
         }
     }
     lastTimeUs = currentTimeUs;
+}
 
+void osdDrawStats2(timeUs_t currentTimeUs)
+{
     displayBeginTransaction(osdDisplayPort, DISPLAY_TRANSACTION_OPT_RESET_DRAWING);
 
     if (resumeRefreshAt) {
@@ -1000,7 +978,6 @@ STATIC_UNIT_TESTED void osdRefresh(timeUs_t currentTimeUs)
             if (IS_HI(THROTTLE) || IS_HI(PITCH)) {
                 resumeRefreshAt = currentTimeUs;
             }
-            displayHeartbeat(osdDisplayPort);
             return;
         } else {
             displayClearScreen(osdDisplayPort);
@@ -1009,13 +986,15 @@ STATIC_UNIT_TESTED void osdRefresh(timeUs_t currentTimeUs)
             stats.armed_time = 0;
         }
     }
-
 #ifdef USE_ESC_SENSOR
     if (featureIsEnabled(FEATURE_ESC_SENSOR)) {
         osdEscDataCombined = getEscSensorData(ESC_SENSOR_COMBINED);
     }
 #endif
+}
 
+void osdDrawStats3()
+{
 #if defined(USE_ACC)
     if (sensors(SENSOR_ACC)
        && (VISIBLE(osdElementConfig()->item_pos[OSD_G_FORCE]) || osdStatGetState(OSD_STAT_MAX_G_FORCE))) {
@@ -1027,74 +1006,228 @@ STATIC_UNIT_TESTED void osdRefresh(timeUs_t currentTimeUs)
         osdGForce = sqrtf(osdGForce) * acc.dev.acc_1G_rec;
     }
 #endif
-
-#ifdef USE_CMS
-    if (!displayIsGrabbed(osdDisplayPort))
-#endif
-    {
-        osdUpdateAlarms();
-        osdDrawElements();
-        displayHeartbeat(osdDisplayPort);
-    }
-    displayCommitTransaction(osdDisplayPort);
 }
 
-/*
- * Called periodically by the scheduler
- */
+typedef enum {
+    OSD_STATE_INIT,
+    OSD_STATE_IDLE,
+    OSD_STATE_CHECK,
+    OSD_STATE_UPDATE_STATS1,
+    OSD_STATE_UPDATE_STATS2,
+    OSD_STATE_UPDATE_STATS3,
+    OSD_STATE_UPDATE_ALARMS,
+    OSD_STATE_UPDATE_CANVAS,
+    OSD_STATE_UPDATE_ELEMENTS,
+    OSD_STATE_UPDATE_HEARTBEAT,
+    OSD_STATE_COMMIT,
+    OSD_STATE_TRANSFER,
+    OSD_STATE_COUNT
+} osdState_e;
+
+osdState_e osdState = OSD_STATE_INIT;
+
+#define OSD_UPDATE_INTERVAL_US (1000000 / OSD_TASK_FREQUENCY_DEFAULT)
+
+// Called periodically by the scheduler
+bool osdUpdateCheck(timeUs_t currentTimeUs, timeDelta_t currentDeltaTimeUs)
+{
+    UNUSED(currentDeltaTimeUs);
+    static timeUs_t osdUpdateDueUs = 0;
+
+    if (osdState == OSD_STATE_IDLE) {
+        // If the OSD is due a refresh, mark that as being the case
+        if (cmpTimeUs(currentTimeUs, osdUpdateDueUs) > 0) {
+            osdState = OSD_STATE_CHECK;
+
+            // Determine time of next update
+            if (osdUpdateDueUs) {
+                osdUpdateDueUs += OSD_UPDATE_INTERVAL_US;
+            } else {
+                osdUpdateDueUs = currentTimeUs + OSD_UPDATE_INTERVAL_US;
+            }
+        }
+    }
+
+    return (osdState != OSD_STATE_IDLE);
+}
+
+// Called when there is OSD update work to be done
 void osdUpdate(timeUs_t currentTimeUs)
 {
-    static uint32_t counter = 0;
+    static timeUs_t osdStateDurationUs[OSD_STATE_COUNT];
+    static timeUs_t osdElementDurationUs[OSD_ITEM_COUNT];
+    timeUs_t executeTimeUs;
+    osdState_e osdCurState = osdState;
+    uint8_t osdCurElement = 0;
 
-    if (!osdIsReady) {
+    if (osdState != OSD_STATE_UPDATE_CANVAS) {
+        ignoreTaskExecRate();
+    }
+
+    switch (osdState) {
+    case OSD_STATE_INIT:
         if (!displayCheckReady(osdDisplayPort, false)) {
-            ignoreTaskShortExecTime();
-            return;
+            break;
         }
 
         osdCompleteInitialization();
-    }
+        displayRedraw(osdDisplayPort);
+        osdState = OSD_STATE_COMMIT;
 
-    if (isBeeperOn()) {
-        showVisualBeeper = true;
-    }
+        break;
 
-    // don't touch buffers if DMA transaction is in progress
-    if (displayIsTransferInProgress(osdDisplayPort)) {
-        ignoreTaskShortExecTime();
-        return;
-    }
+    case OSD_STATE_CHECK:
+        if (isBeeperOn()) {
+            showVisualBeeper = true;
+        }
 
-#ifdef USE_SLOW_MSP_DISPLAYPORT_RATE_WHEN_UNARMED
-    static uint32_t idlecounter = 0;
-    if (!ARMING_FLAG(ARMED)) {
-        if (idlecounter++ % 4 != 0) {
-            ignoreTaskShortExecTime();
+        // don't touch buffers if DMA transaction is in progress
+        if (displayIsTransferInProgress(osdDisplayPort)) {
+            break;
+        }
+
+        osdState = OSD_STATE_UPDATE_HEARTBEAT;
+        break;
+
+    case OSD_STATE_UPDATE_HEARTBEAT:
+        if (displayHeartbeat(osdDisplayPort)) {
+            // Extraordinary action was taken, so return without allowing osdStateDurationUs table to be updated
             return;
         }
-    }
-#endif
 
-    // redraw values in buffer
-    if (counter % OSD_DRAW_FREQ_DENOM == 0) {
-        osdRefresh(currentTimeUs);
+        osdState = OSD_STATE_UPDATE_STATS1;
+        break;
+
+    case OSD_STATE_UPDATE_STATS1:
+        osdDrawStats1(currentTimeUs);
         showVisualBeeper = false;
-    } else {
-        bool doDrawScreen = true;
-#if defined(USE_CMS) && defined(USE_MSP_DISPLAYPORT) && defined(USE_OSD_OVER_MSP_DISPLAYPORT)
-        // For the MSP displayPort device only do the drawScreen once per
-        // logical OSD cycle as there is no output buffering needing to be flushed.
-        if (osdDisplayPortDeviceType == OSD_DISPLAYPORT_DEVICE_MSP) {
-            doDrawScreen = (counter % OSD_DRAW_FREQ_DENOM == 1);
-        }
+
+        osdState = OSD_STATE_UPDATE_STATS2;
+        break;
+
+    case OSD_STATE_UPDATE_STATS2:
+        osdDrawStats2(currentTimeUs);
+
+        osdState = OSD_STATE_UPDATE_STATS3;
+        break;
+
+    case OSD_STATE_UPDATE_STATS3:
+        osdDrawStats3();
+
+#ifdef USE_CMS
+        if (!displayIsGrabbed(osdDisplayPort))
 #endif
-        // Redraw a portion of the chars per idle to spread out the load and SPI bus utilization
-        if (doDrawScreen) {
-            displayDrawScreen(osdDisplayPort);
+        {
+            osdState = OSD_STATE_UPDATE_ALARMS;
+            break;
         }
-        ignoreTaskShortExecTime();
+
+        osdState = OSD_STATE_COMMIT;
+        break;
+
+    case OSD_STATE_UPDATE_ALARMS:
+        osdUpdateAlarms();
+
+        osdState = OSD_STATE_UPDATE_CANVAS;
+        break;
+
+    case OSD_STATE_UPDATE_CANVAS:
+        // Hide OSD when OSDSW mode is active
+        if (IS_RC_MODE_ACTIVE(BOXOSD)) {
+            displayClearScreen(osdDisplayPort);
+            osdState = OSD_STATE_UPDATE_HEARTBEAT;
+            break;
+        }
+
+        if (backgroundLayerSupported) {
+            // Background layer is supported, overlay it onto the foreground
+            // so that we only need to draw the active parts of the elements.
+            displayLayerCopy(osdDisplayPort, DISPLAYPORT_LAYER_FOREGROUND, DISPLAYPORT_LAYER_BACKGROUND);
+        } else {
+            // Background layer not supported, just clear the foreground in preparation
+            // for drawing the elements including their backgrounds.
+            displayClearScreen(osdDisplayPort);
+        }
+
+#ifdef USE_GPS
+        static bool lastGpsSensorState;
+        // Handle the case that the GPS_SENSOR may be delayed in activation
+        // or deactivate if communication is lost with the module.
+        const bool currentGpsSensorState = sensors(SENSOR_GPS);
+        if (lastGpsSensorState != currentGpsSensorState) {
+            lastGpsSensorState = currentGpsSensorState;
+            osdAnalyzeActiveElements();
+        }
+#endif // USE_GPS
+
+        osdSyncBlink(currentTimeUs);
+
+        osdState = OSD_STATE_UPDATE_ELEMENTS;
+        break;
+
+    case OSD_STATE_UPDATE_ELEMENTS:
+        osdCurElement = osdGetActiveElement();
+
+        if (osdDrawNextActiveElement(osdDisplayPort, currentTimeUs)) {
+            // There are more elements to draw
+            break;
+        }
+
+        osdState = OSD_STATE_COMMIT;
+        break;
+
+    case OSD_STATE_COMMIT:
+        displayCommitTransaction(osdDisplayPort);
+
+        if (resumeRefreshAt) {
+            osdState = OSD_STATE_IDLE;
+        } else {
+            osdState = OSD_STATE_TRANSFER;
+        }
+        break;
+
+    case OSD_STATE_TRANSFER:
+        // Wait for any current transfer to complete
+        if (displayIsTransferInProgress(osdDisplayPort)) {
+            break;
+        }
+
+        // Transfer may be broken into many parts
+        if (displayDrawScreen(osdDisplayPort)) {
+            break;
+        }
+
+        osdState = OSD_STATE_IDLE;
+        break;
+
+    case OSD_STATE_IDLE:
+    default:
+        osdState = OSD_STATE_IDLE;
+        break;
     }
-    ++counter;
+
+    executeTimeUs = micros() - currentTimeUs;
+
+    if (osdCurState == OSD_STATE_UPDATE_ELEMENTS) {
+        if (executeTimeUs > osdElementDurationUs[osdCurElement]) {
+            osdElementDurationUs[osdCurElement] = executeTimeUs;
+            osdStateDurationUs[osdCurState] = executeTimeUs;
+        }
+        if (osdState == OSD_STATE_UPDATE_ELEMENTS) {
+            schedulerSetNextStateTime(osdElementDurationUs[osdGetActiveElement()]);
+        } else {
+            schedulerSetNextStateTime(osdStateDurationUs[osdState]);
+        }
+    } else{
+        if (executeTimeUs > osdStateDurationUs[osdCurState]) {
+            osdStateDurationUs[osdCurState] = executeTimeUs;
+        }
+        if (osdState == OSD_STATE_IDLE) {
+            schedulerSetNextStateTime(osdStateDurationUs[OSD_STATE_CHECK]);
+        } else {
+            schedulerSetNextStateTime(osdStateDurationUs[osdState]);
+        }
+    }
 }
 
 void osdSuppressStats(bool flag)

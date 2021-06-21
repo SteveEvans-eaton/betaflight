@@ -89,6 +89,7 @@ extern "C" {
 
     timeUs_t simulationTime = 0;
 
+    void osdUpdate(timeUs_t currentTimeUs);
     void osdRefresh(timeUs_t currentTimeUs);
     uint16_t updateLinkQualitySamples(uint16_t value);
 #define LINK_QUALITY_SAMPLE_COUNT 16
