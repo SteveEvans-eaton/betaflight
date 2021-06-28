@@ -25,12 +25,11 @@
 
 #ifdef USE_SDCARD_SPI
 
-#include "drivers/nvic.h"
-#include "drivers/io.h"
+#include "drivers/bus_spi.h"
 #include "drivers/dma.h"
 #include "drivers/dma_reqmap.h"
-
-#include "drivers/bus_spi.h"
+#include "drivers/io.h"
+#include "drivers/nvic.h"
 #include "drivers/time.h"
 
 #include "pg/bus_spi.h"
