@@ -219,7 +219,7 @@ static uint8_t activeOsdElementArray[OSD_ITEM_COUNT];
 static bool backgroundLayerSupported = false;
 
 // Blink control
-#define OSD_BLINK_FREQUENCY_HZ 2.5f
+#define OSD_BLINK_FREQUENCY_HZ 2
 static bool blinkState = true;
 static uint32_t blinkBits[(OSD_ITEM_COUNT + 31) / 32];
 #define SET_BLINK(item) (blinkBits[(item) / 32] |= (1 << ((item) % 32)))
@@ -1808,7 +1808,12 @@ static uint8_t activeElement = 0;
 
 uint8_t osdGetActiveElement()
 {
-    return activeOsdElementArray[activeElement];
+    return activeElement;
+}
+
+uint8_t osdGetActiveElementCount()
+{
+    return activeOsdElementCount;
 }
 
 // Return true if there are more elements to draw
@@ -1817,11 +1822,17 @@ bool osdDrawNextActiveElement(displayPort_t *osdDisplayPort, timeUs_t currentTim
     UNUSED(currentTimeUs);
     bool retval = true;
 
+    if (activeElement >= activeOsdElementCount) {
+        return false;
+    }
+
     if (!backgroundLayerSupported) {
         // If the background layer isn't supported then we
         // have to draw the element's static layer as well.
         osdDrawSingleElementBackground(osdDisplayPort, activeOsdElementArray[activeElement]);
     }
+    osdDrawSingleElement(osdDisplayPort, activeOsdElementArray[activeElement]);
+
     osdDrawSingleElement(osdDisplayPort, activeOsdElementArray[activeElement]);
 
     if (++activeElement >= activeOsdElementCount) {
@@ -1850,21 +1861,14 @@ void osdElementsInit(bool backgroundLayerFlag)
     activeOsdElementCount = 0;
 }
 
-#define OSD_BLINK_INTERVAL_US (1000000 / (OSD_BLINK_FREQUENCY_HZ * 2))
-
-void osdSyncBlink(timeUs_t currentTimeUs) {
-    static timeUs_t osdBlinkDueUs = 0;
+void osdSyncBlink() {
+    static int blinkCount = 0;
 
     // If the OSD blink is due a transition, do so
-    if (cmpTimeUs(currentTimeUs, osdBlinkDueUs) > 0) {
+    // Task runs at 12Hz, so this will cycle at 2Hz
+    if (++blinkCount == ((OSD_TASK_FREQUENCY_DEFAULT/OSD_BLINK_FREQUENCY_HZ)/2)) {
+        blinkCount = 0;
         blinkState = !blinkState;
-
-        // Determine time of next blink transition
-        if (osdBlinkDueUs) {
-            osdBlinkDueUs += OSD_BLINK_INTERVAL_US;
-        } else {
-            osdBlinkDueUs = currentTimeUs + OSD_BLINK_INTERVAL_US;
-        }
     }
 }
 

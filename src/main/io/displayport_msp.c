@@ -91,7 +91,9 @@ static int clearScreen(displayPort_t *displayPort)
 static int drawScreen(displayPort_t *displayPort)
 {
     uint8_t subcmd[] = { 4 };
-    return output(displayPort, MSP_DISPLAYPORT, subcmd, sizeof(subcmd));
+    output(displayPort, MSP_DISPLAYPORT, subcmd, sizeof(subcmd));
+
+    return 0;
 }
 
 static int screenSize(const displayPort_t *displayPort)
