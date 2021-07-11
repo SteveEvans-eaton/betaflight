@@ -220,11 +220,9 @@ static void taskUpdateRxMain(timeUs_t currentTimeUs)
 
     executeTimeUs = micros() - currentTimeUs;
 
-    if (executeTimeUs > rxStateDurationUs[oldRxState]) {
-        rxStateDurationUs[oldRxState] = executeTimeUs;
-    }
+    rxStateDurationUs[oldRxState] += executeTimeUs - rxStateDurationUs[oldRxState] / TASK_STATS_MOVING_SUM_COUNT;
 
-    schedulerSetNextStateTime(rxStateDurationUs[rxState]);
+    schedulerSetNextStateTime(rxStateDurationUs[rxState] / TASK_STATS_MOVING_SUM_COUNT);
 }
 
 

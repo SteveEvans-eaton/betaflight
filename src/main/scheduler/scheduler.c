@@ -360,13 +360,15 @@ FAST_CODE timeUs_t schedulerExecuteTask(task_t *selectedTask, timeUs_t currentTi
             selectedTask->movingSumDeltaTimeUs += selectedTask->taskLatestDeltaTimeUs - selectedTask->movingSumDeltaTimeUs / TASK_STATS_MOVING_SUM_COUNT;
             selectedTask->lastStatsAtUs = currentTimeUs;
         }
+
+        // Update estimate of expected task duration
+        if (taskNextStateTime != -1) {
+            selectedTask->anticipatedExecutionTimeUs = taskNextStateTime * TASK_STATS_MOVING_SUM_COUNT;
+        } else if (!ignoreCurrentTaskExecTime) {
+            selectedTask->anticipatedExecutionTimeUs += taskExecutionTimeUs - selectedTask->anticipatedExecutionTimeUs / TASK_STATS_MOVING_SUM_COUNT;
+        }
+
         if (!ignoreCurrentTaskExecTime) {
-            // Update estimate of expected task duration
-            if (taskNextStateTime != -1) {
-                selectedTask->anticipatedExecutionTimeUs = taskNextStateTime * TASK_STATS_MOVING_SUM_COUNT;
-            } else {
-                selectedTask->anticipatedExecutionTimeUs += taskExecutionTimeUs - selectedTask->anticipatedExecutionTimeUs / TASK_STATS_MOVING_SUM_COUNT;
-            }
             selectedTask->maxExecutionTimeUs = MAX(selectedTask->maxExecutionTimeUs, taskExecutionTimeUs);
         }
         selectedTask->totalExecutionTimeUs += taskExecutionTimeUs;   // time consumed by scheduler + task
