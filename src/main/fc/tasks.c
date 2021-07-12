@@ -178,6 +178,7 @@ static void taskUpdateRxMain(timeUs_t currentTimeUs)
 {
     static timeUs_t rxStateDurationUs[RX_STATE_COUNT];
     timeUs_t executeTimeUs;
+    timeUs_t existingDurationUs;
     rxState_e oldRxState = rxState;
 
     // Where we are using a state machine call ignoreTaskExecRate() for all states bar one
@@ -220,7 +221,14 @@ static void taskUpdateRxMain(timeUs_t currentTimeUs)
 
     executeTimeUs = micros() - currentTimeUs;
 
-    rxStateDurationUs[oldRxState] += executeTimeUs - rxStateDurationUs[oldRxState] / TASK_STATS_MOVING_SUM_COUNT;
+    existingDurationUs = rxStateDurationUs[oldRxState] / TASK_STATS_MOVING_SUM_COUNT;
+
+    // If the execution time is higher than expected, double the weight in the moving average
+    if (executeTimeUs > existingDurationUs) {
+        rxStateDurationUs[oldRxState] += executeTimeUs - existingDurationUs;
+    }
+
+    rxStateDurationUs[oldRxState] += executeTimeUs - existingDurationUs;
 
     schedulerSetNextStateTime(rxStateDurationUs[rxState] / TASK_STATS_MOVING_SUM_COUNT);
 }
