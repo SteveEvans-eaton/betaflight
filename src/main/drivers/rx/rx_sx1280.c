@@ -660,7 +660,7 @@ static busStatus_e sx1280IrqCmdComplete(uint32_t arg)
 // Flag the completion of a packet transmission
 static busStatus_e sx1280EnableTxIrq(uint32_t arg)
 {
-    expressLrsSetRfPacketStatus(RX_SPI_SENT_DATA);
+    expressLrsSetRfPacketStatus(RX_SPI_ROCESSING_REQUIRED);
 
     return sx1280EnableIRQs(arg);
 }

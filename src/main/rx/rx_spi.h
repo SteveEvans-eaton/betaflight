@@ -57,7 +57,6 @@ typedef enum {
     RX_SPI_RECEIVED_BIND = (1 << 0),
     RX_SPI_RECEIVED_DATA = (1 << 1),
     RX_SPI_ROCESSING_REQUIRED = (1 << 2),
-    RX_SPI_SENT_DATA = (1 << 3),
 } rx_spi_received_e;
 
 // RC channels in AETR order
