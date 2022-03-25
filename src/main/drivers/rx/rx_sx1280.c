@@ -657,6 +657,14 @@ static busStatus_e sx1280IrqCmdComplete(uint32_t arg)
     return BUS_READY;
 }
 
+// Flag the completion of a packet transmission
+static busStatus_e sx1280EnableTxIrq(uint32_t arg)
+{
+    expressLrsSetRfPacketStatus(RX_SPI_SENT_DATA);
+
+    return sx1280EnableIRQs(arg);
+}
+
 // Process IRQ status
 static void sx1280ProcessIrq(extiCallbackRec_t *cb)
 {
@@ -684,7 +692,7 @@ static void sx1280ProcessIrq(extiCallbackRec_t *cb)
         STATIC_DMA_DATA_AUTO uint8_t irqSetRxCmd[] = {SX1280_RADIO_SET_RX, 0, 0xff, 0xff};
 
         static busSegment_t segments[] = {
-            {.u.buffers = {irqSetRxCmd, NULL}, sizeof(irqSetRxCmd), false, sx1280EnableIRQs},
+            {.u.buffers = {irqSetRxCmd, NULL}, sizeof(irqSetRxCmd), false, sx1280EnableTxIrq},
             {.u.link = {NULL, NULL}, 0, true, NULL},
         };
 

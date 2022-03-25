@@ -480,6 +480,8 @@ FAST_CODE_NOINLINE void rxFrameCheck(timeUs_t currentTimeUs, timeDelta_t current
     bool useDataDrivenProcessing = true;
     timeDelta_t needRxSignalMaxDelayUs = anticipatedDeltaTime10thUs * 2 / 10;
 
+    DEBUG_SET(DEBUG_RX_SIGNAL_LOSS, 2, anticipatedDeltaTime10thUs / 10);
+
     if (taskUpdateRxMainInProgress()) {
         // No need to check for new data as a packet is being processed already
         return;
@@ -722,7 +724,7 @@ static void detectAndApplySignalLossBehaviour(void)
         failsafeOnValidDataFailed();
     }
 
-        DEBUG_SET(DEBUG_RX_SIGNAL_LOSS, 2, validRxPacket);
+//        DEBUG_SET(DEBUG_RX_SIGNAL_LOSS, 2, validRxPacket);
         DEBUG_SET(DEBUG_RX_SIGNAL_LOSS, 3, rcData[THROTTLE]);
 }
 
