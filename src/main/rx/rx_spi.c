@@ -202,7 +202,7 @@ STATIC_UNIT_TESTED bool rxSpiSetProtocol(rx_spi_protocol_e protocol)
 /* Called by scheduler immediately after real-time tasks
  * Returns true if the RX has received new data.
  */
-static uint8_t rxSpiFrameStatus(rxRuntimeState_t *rxRuntimeState)
+static rxFrameState_e rxSpiFrameStatus(rxRuntimeState_t *rxRuntimeState)
 {
     UNUSED(rxRuntimeState);
 
@@ -212,6 +212,10 @@ static uint8_t rxSpiFrameStatus(rxRuntimeState_t *rxRuntimeState)
 
     if (result & RX_SPI_RECEIVED_DATA) {
         rxSpiNewPacketAvailable = true;
+        status = RX_FRAME_COMPLETE;
+    }
+
+    if (result & RX_SPI_TRANSMITTED_DATA) {
         status = RX_FRAME_COMPLETE;
     }
 
