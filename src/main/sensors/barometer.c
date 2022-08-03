@@ -46,6 +46,7 @@
 #include "drivers/bus_i2c_busdev.h"
 #include "drivers/bus_spi.h"
 #include "drivers/io.h"
+#include "drivers/pinio.h"
 #include "drivers/time.h"
 
 #include "fc/runtime_config.h"
@@ -151,6 +152,7 @@ static uint32_t baroPressureSum = 0;
 #define SET_GROUND_LEVEL_BARO_CYCLES 10 // calibrate baro to new ground level (10 * 25 ms = ~250 ms non blocking)
 
 static bool baroReady = false;
+static bool baroSampleReady = false;
 
 void baroPreInit(void)
 {
@@ -378,6 +380,14 @@ bool isBaroReady(void) {
     return baroReady;
 }
 
+bool isBaroSampleReady(void) {
+    if (baroSampleReady) {
+        baroSampleReady = false;
+        return true;
+    }
+    return false;
+}
+
 uint32_t baroUpdate(timeUs_t currentTimeUs)
 {
     static timeUs_t baroStateDurationUs[BARO_STATE_COUNT];
@@ -386,6 +396,7 @@ uint32_t baroUpdate(timeUs_t currentTimeUs)
     timeUs_t executeTimeUs;
     timeUs_t sleepTime = 1000; // Wait 1ms between states
 
+    pinioSet(2, 1);
     DEBUG_SET(DEBUG_BARO, 0, state);
 
     if (busBusy(&baro.dev.dev, NULL)) {
@@ -446,6 +457,9 @@ uint32_t baroUpdate(timeUs_t currentTimeUs)
             baro.baroPressure = baroPressure;
             baro.baroTemperature = baroTemperature;
             baroPressureSum = recalculateBarometerTotal(baroPressureSum, baroPressure);
+
+            baroSampleReady = true;
+
             if (baro.dev.combined_read) {
                 state = BARO_STATE_PRESSURE_START;
             } else {
@@ -456,6 +470,7 @@ uint32_t baroUpdate(timeUs_t currentTimeUs)
             DEBUG_SET(DEBUG_BARO, 2, baroPressure);
             DEBUG_SET(DEBUG_BARO, 3, baroPressureSum);
 
+            pinioSet(3, 1);
             break;
     }
 
@@ -472,6 +487,7 @@ uint32_t baroUpdate(timeUs_t currentTimeUs)
 
     schedulerSetNextStateTime(baroStateDurationUs[state]);
 
+    pinioSet(2, 0);
     return sleepTime;
 }
 
