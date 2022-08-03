@@ -98,9 +98,8 @@ void calculateEstimatedAltitude(timeUs_t currentTimeUs)
     static timeUs_t previousTimeUs = 0;
     static int32_t baroAltOffset = 0;
     static int32_t gpsAltOffset = 0;
-
-    pinioSet(0, 1);
     const uint32_t dTime = currentTimeUs - previousTimeUs;
+
     previousTimeUs = currentTimeUs;
 
     int32_t baroAlt = 0;
@@ -118,7 +117,6 @@ void calculateEstimatedAltitude(timeUs_t currentTimeUs)
         if (!baroIsCalibrationComplete()) {
             performBaroCalibrationCycle();
         } else {
-            pinioSet(3, 0);
             baroAlt = baroCalculateAltitude();
             haveBaroAlt = true;
         }
@@ -207,7 +205,6 @@ void calculateEstimatedAltitude(timeUs_t currentTimeUs)
 #ifdef USE_VARIO
     DEBUG_SET(DEBUG_ALTITUDE, 3, estimatedVario);
 #endif
-    pinioSet(0, 0);
 }
 
 bool isAltitudeOffset(void)

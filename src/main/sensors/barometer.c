@@ -396,7 +396,6 @@ uint32_t baroUpdate(timeUs_t currentTimeUs)
     timeUs_t executeTimeUs;
     timeUs_t sleepTime = 1000; // Wait 1ms between states
 
-    pinioSet(2, 1);
     DEBUG_SET(DEBUG_BARO, 0, state);
 
     if (busBusy(&baro.dev.dev, NULL)) {
@@ -470,7 +469,6 @@ uint32_t baroUpdate(timeUs_t currentTimeUs)
             DEBUG_SET(DEBUG_BARO, 2, baroPressure);
             DEBUG_SET(DEBUG_BARO, 3, baroPressureSum);
 
-            pinioSet(3, 1);
             break;
     }
 
@@ -487,7 +485,6 @@ uint32_t baroUpdate(timeUs_t currentTimeUs)
 
     schedulerSetNextStateTime(baroStateDurationUs[state]);
 
-    pinioSet(2, 0);
     return sleepTime;
 }
 
