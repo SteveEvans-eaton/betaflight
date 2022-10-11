@@ -42,6 +42,7 @@
 #include "common/printf.h"
 #include "drivers/flash.h"
 #include "drivers/light_led.h"
+#include "drivers/pinio.h"
 
 #include "io/flashfs.h"
 
@@ -233,6 +234,8 @@ static void flashfsAdvanceTailInBuffer(uint32_t delta)
  */
 void flashfsWriteCallback(uint32_t arg)
 {
+    pinioSet(1, 0);
+
     // Advance the cursor in the file system to match the bytes we wrote
     flashfsSetTailAddress(tailAddress + arg);
 
@@ -267,6 +270,7 @@ static uint32_t flashfsWriteBuffers(uint8_t const **buffers, uint32_t *bufferSiz
     checkFlashPtr = tailAddress;
 #endif
 
+    pinioSet(1, 1);
     flashPageProgramBegin(tailAddress, flashfsWriteCallback);
 
     /* Mark that data has yet to be written. There is no race condition as the DMA engine is known

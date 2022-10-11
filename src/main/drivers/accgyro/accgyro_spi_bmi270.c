@@ -34,6 +34,7 @@
 #include "drivers/io.h"
 #include "drivers/io_impl.h"
 #include "drivers/nvic.h"
+#include "drivers/pinio.h"
 #include "drivers/sensor.h"
 #include "drivers/system.h"
 #include "drivers/time.h"
@@ -284,6 +285,8 @@ busStatus_e bmi270Intcallback(uint32_t arg)
         gyro->gyroDmaMaxDuration = gyroDmaDuration;
     }
 
+    pinioSet(0, 0);
+
     gyro->dataReady = true;
 
     return BUS_READY;
@@ -301,6 +304,7 @@ void bmi270ExtiHandler(extiCallbackRec_t *cb)
     gyro->gyroLastEXTI = nowCycles;
 
     if (gyro->gyroModeSPI == GYRO_EXTI_INT_DMA) {
+        pinioSet(0, 1);
         spiSequence(dev, gyro->segments);
     }
 

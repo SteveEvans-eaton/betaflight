@@ -35,6 +35,7 @@
 #include "drivers/bus_spi_impl.h"
 #include "drivers/exti.h"
 #include "drivers/io.h"
+#include "drivers/pinio.h"
 #include "drivers/rcc.h"
 
 static SPI_InitTypeDef defaultInit = {
@@ -377,18 +378,36 @@ void spiSequenceStart(const extDevice_t *dev)
     } else {
         busSegment_t *lastSegment = NULL;
 
+        pinioSet(3, 1);
+        pinioSet(2, 1);
+        pinioSet(2, 0);
+        pinioSet(3, 0);
         // Manually work through the segment list performing a transfer for each
         while (bus->curSegment->len) {
+            pinioSet(3, 1);
+            pinioSet(2, 1);
+            pinioSet(2, 0);
+            pinioSet(2, 1);
+            pinioSet(2, 0);
+            pinioSet(3, 0);
             if (!lastSegment || lastSegment->negateCS) {
                 // Assert Chip Select if necessary - it's costly so only do so if necessary
                 IOLo(dev->busType_u.spi.csnPin);
             }
 
+            pinioSet(3, 1);
+            pinioSet(2, 1);
+            pinioSet(2, 0);
+            pinioSet(2, 1);
+            pinioSet(2, 0);
+            pinioSet(2, 1);
+            pinioSet(2, 0);
             spiInternalReadWriteBufPolled(
                     bus->busType_u.spi.instance,
                     bus->curSegment->u.buffers.txData,
                     bus->curSegment->u.buffers.rxData,
                     bus->curSegment->len);
+            pinioSet(3, 0);
 
             if (bus->curSegment->negateCS) {
                 // Negate Chip Select
