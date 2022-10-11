@@ -633,7 +633,7 @@ void spiSequenceStart(const extDevice_t *dev)
 
     // Use DMA if possible
     // If there are more than one segments, or a single segment with negateCS negated then force DMA irrespective of length
-    if (bus->useDMA && dmaSafe && ((segmentCount > 1) || (xferLen >= 8) || !bus->curSegment->negateCS)) {
+    if (bus->useDMA && dmaSafe && ((segmentCount > 1) || (xferLen >= 8) || !bus->curSegment[1].negateCS)) {
         // Intialise the init structures for the first transfer
         spiInternalInitStream(dev, false);
 
