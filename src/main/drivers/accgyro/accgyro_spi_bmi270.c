@@ -276,6 +276,8 @@ extiCallbackRec_t bmi270IntCallbackRec;
  */
 // Called in ISR context
 // Gyro read has just completed
+static bool transferOngoing = false;
+
 busStatus_e bmi270Intcallback(uint32_t arg)
 {
     gyroDev_t *gyro = (gyroDev_t *)arg;
@@ -286,6 +288,7 @@ busStatus_e bmi270Intcallback(uint32_t arg)
     }
 
     pinioSet(0, 0);
+    transferOngoing = false;
 
     gyro->dataReady = true;
 
@@ -303,9 +306,14 @@ void bmi270ExtiHandler(extiCallbackRec_t *cb)
     gyro->gyroSyncEXTI = gyro->gyroLastEXTI + gyro->gyroDmaMaxDuration;
     gyro->gyroLastEXTI = nowCycles;
 
-    if (gyro->gyroModeSPI == GYRO_EXTI_INT_DMA) {
+    if (gyro->segments[0].len == -1) {
+        pinioSet(3, 1);
+        pinioSet(3, 0);
+        return;
+    } else if (gyro->gyroModeSPI == GYRO_EXTI_INT_DMA) {
         pinioSet(0, 1);
         spiSequence(dev, gyro->segments);
+        transferOngoing = true;
     }
 
     gyro->detectedEXTI++;

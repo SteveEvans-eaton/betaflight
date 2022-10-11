@@ -35,9 +35,13 @@
 #include "drivers/exti.h"
 #include "drivers/io.h"
 #include "drivers/motor.h"
+#include "drivers/pinio.h"
 #include "drivers/rcc.h"
 #include "nvic.h"
 #include "pg/bus_spi.h"
+
+#include "scheduler/scheduler.h"
+#include "sensors/gyro_init.h"
 
 #define NUM_QUEUE_SEGS 5
 
@@ -45,6 +49,8 @@ static uint8_t spiRegisteredDeviceCount = 0;
 
 spiDevice_t spiDevice[SPIDEV_COUNT];
 busDevice_t spiBusDevice[SPIDEV_COUNT];
+
+extern task_t *corruptingTask;
 
 SPIDevice spiDeviceByInstance(SPI_TypeDef *instance)
 {
@@ -383,6 +389,12 @@ static void spiIrqHandler(const extDevice_t *dev)
     busDevice_t *bus = dev->bus;
     busSegment_t *nextSegment;
 
+    if ((gyroActiveDev()->segments[0].len == -1) && (corruptingTask == NULL)) {
+        pinioSet(2, 1);
+        pinioSet(2, 0);
+        pinioSet(2, 1);
+        pinioSet(2, 0);
+    }
     if (bus->curSegment->callback) {
         switch(bus->curSegment->callback(dev->callbackArg)) {
         case BUS_BUSY:
@@ -403,6 +415,14 @@ static void spiIrqHandler(const extDevice_t *dev)
         }
     }
 
+    if ((gyroActiveDev()->segments[0].len == -1) && (corruptingTask == NULL)) {
+        pinioSet(2, 1);
+        pinioSet(2, 0);
+        pinioSet(2, 1);
+        pinioSet(2, 0);
+        pinioSet(2, 1);
+        pinioSet(2, 0);
+    }
     // Advance through the segment list
     // OK to discard the volatile qualifier here
     nextSegment = (busSegment_t *)bus->curSegment + 1;

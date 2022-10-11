@@ -176,6 +176,9 @@ bool cliMode = false;
 
 static serialPort_t *cliPort = NULL;
 
+extern task_t *corruptingTask;
+extern busSegment_t *corruptingSegment;
+
 // Space required to set array parameters
 #define CLI_IN_BUFFER_SIZE 256
 #define CLI_OUT_BUFFER_SIZE 64
@@ -4897,6 +4900,37 @@ static void cliStatus(const char *cmdName, char *cmdline)
     cliPrintLinefeed();
 }
 
+static void cliSpi(const char *cmdName, char *cmdline)
+{
+    UNUSED(cmdName);
+    UNUSED(cmdline);
+
+    // DEBUGSCE
+    // Dump SPI2 registers
+    extern busDevice_t spiBusDevice[SPIDEV_COUNT];
+    busDevice_t *bus = &spiBusDevice[SPIDEV_2];
+    busSegment_t *curSegment = (busSegment_t *)bus->curSegment;
+    if (curSegment) {
+//      cliPrintLinef("curSegment 0x%08x 0x%08x 0x%08x", curSegment->u.buffers.rxData, curSegment->u.buffers.txData, curSegment->len);
+        cliPrintLinef("SPI2 active 0x%08x", curSegment);
+        cliPrintLinef("rxData 0x%08x", curSegment->u.buffers.rxData);
+        cliPrintLinef("txData 0x%08x", curSegment->u.buffers.txData);
+        cliPrintLinef("len 0x%08x", curSegment->len);
+    } else {
+        cliPrintLine("SPI2 inactive");
+    }
+    cliPrintLinef("gyro->segments 0x%08x", gyroActiveDev()->segments);
+    if (corruptingTask) {
+        cliPrintLinef("corruptingTask %s", corruptingTask->attribute->taskName);
+
+        for (int i = 0; corruptingSegment[i].len ; i++) {
+            cliPrintf("rxData 0x%08x ", corruptingSegment[i].u.buffers.rxData);
+            cliPrintf("txData 0x%08x ", corruptingSegment[i].u.buffers.txData);
+            cliPrintLinef("len 0x%08x", corruptingSegment[i].len);
+        }
+    }
+}
+
 static void cliTasks(const char *cmdName, char *cmdline)
 {
     UNUSED(cmdName);
@@ -6657,6 +6691,7 @@ const clicmd_t cmdTable[] = {
     CLI_COMMAND_DEF("vtx_info", "vtx power config dump", NULL, cliVtxInfo),
     CLI_COMMAND_DEF("vtxtable", "vtx frequency table", "<band> <bandname> <bandletter> [FACTORY|CUSTOM] <freq> ... <freq>\r\n", cliVtxTable),
 #endif
+    CLI_COMMAND_DEF("spi", "", NULL, cliSpi),
 };
 
 static void cliHelp(const char *cmdName, char *cmdline)

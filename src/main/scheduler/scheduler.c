@@ -37,6 +37,7 @@
 
 #include "drivers/time.h"
 #include "drivers/accgyro/accgyro.h"
+#include "drivers/pinio.h"
 #include "drivers/system.h"
 
 #include "fc/core.h"
@@ -370,6 +371,8 @@ FAST_CODE timeDelta_t schedulerGetNextStateTime()
     return currentTask->anticipatedExecutionTime >> TASK_EXEC_TIME_SHIFT;
 }
 
+task_t *corruptingTask = NULL;
+
 FAST_CODE timeUs_t schedulerExecuteTask(task_t *selectedTask, timeUs_t currentTimeUs)
 {
     timeUs_t taskExecutionTimeUs = 0;
@@ -387,6 +390,12 @@ FAST_CODE timeUs_t schedulerExecuteTask(task_t *selectedTask, timeUs_t currentTi
         // Execute task
         const timeUs_t currentTimeBeforeTaskCallUs = micros();
         selectedTask->attribute->taskFunc(currentTimeBeforeTaskCallUs);
+
+        if ((gyroActiveDev()->segments[0].len == -1) && (corruptingTask == NULL)) {
+            pinioSet(2, 1);
+            pinioSet(2, 0);
+            corruptingTask = selectedTask;
+        }
         taskExecutionTimeUs = micros() - currentTimeBeforeTaskCallUs;
         taskTotalExecutionTime += taskExecutionTimeUs;
         selectedTask->movingSumExecutionTime10thUs += (taskExecutionTimeUs * 10) - selectedTask->movingSumExecutionTime10thUs / TASK_STATS_MOVING_SUM_COUNT;

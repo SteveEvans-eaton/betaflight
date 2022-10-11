@@ -35,8 +35,9 @@
 #include "drivers/bus_spi_impl.h"
 #include "drivers/exti.h"
 #include "drivers/io.h"
-#include "drivers/pinio.h"
 #include "drivers/rcc.h"
+
+#include "scheduler/scheduler.h"
 
 static SPI_InitTypeDef defaultInit = {
     .SPI_Mode = SPI_Mode_Master,
@@ -317,6 +318,9 @@ void spiInternalStopDMA (const extDevice_t *dev)
     }
 }
 
+busSegment_t *corruptingSegment = NULL;
+extern task_t *corruptingTask;
+
 // DMA transfer setup and start
 void spiSequenceStart(const extDevice_t *dev)
 {
@@ -325,6 +329,10 @@ void spiSequenceStart(const extDevice_t *dev)
     bool dmaSafe = dev->useDMA;
     uint32_t xferLen = 0;
     uint32_t segmentCount = 0;
+
+    if ((instance == SPI2) && (corruptingTask == NULL)) {
+        corruptingSegment = (busSegment_t *)bus->curSegment;
+    }
 
     dev->bus->initSegment = true;
 
@@ -378,36 +386,18 @@ void spiSequenceStart(const extDevice_t *dev)
     } else {
         busSegment_t *lastSegment = NULL;
 
-        pinioSet(3, 1);
-        pinioSet(2, 1);
-        pinioSet(2, 0);
-        pinioSet(3, 0);
         // Manually work through the segment list performing a transfer for each
         while (bus->curSegment->len) {
-            pinioSet(3, 1);
-            pinioSet(2, 1);
-            pinioSet(2, 0);
-            pinioSet(2, 1);
-            pinioSet(2, 0);
-            pinioSet(3, 0);
             if (!lastSegment || lastSegment->negateCS) {
                 // Assert Chip Select if necessary - it's costly so only do so if necessary
                 IOLo(dev->busType_u.spi.csnPin);
             }
 
-            pinioSet(3, 1);
-            pinioSet(2, 1);
-            pinioSet(2, 0);
-            pinioSet(2, 1);
-            pinioSet(2, 0);
-            pinioSet(2, 1);
-            pinioSet(2, 0);
             spiInternalReadWriteBufPolled(
                     bus->busType_u.spi.instance,
                     bus->curSegment->u.buffers.txData,
                     bus->curSegment->u.buffers.rxData,
                     bus->curSegment->len);
-            pinioSet(3, 0);
 
             if (bus->curSegment->negateCS) {
                 // Negate Chip Select
