@@ -4909,19 +4909,28 @@ static void cliSpi(const char *cmdName, char *cmdline)
     // Dump SPI2 registers
     extern busDevice_t spiBusDevice[SPIDEV_COUNT];
     busDevice_t *bus = &spiBusDevice[SPIDEV_2];
+
     busSegment_t *curSegment = (busSegment_t *)bus->curSegment;
     if (curSegment) {
-//      cliPrintLinef("curSegment 0x%08x 0x%08x 0x%08x", curSegment->u.buffers.rxData, curSegment->u.buffers.txData, curSegment->len);
         cliPrintLinef("SPI2 active 0x%08x", curSegment);
-        cliPrintLinef("rxData 0x%08x", curSegment->u.buffers.rxData);
-        cliPrintLinef("txData 0x%08x", curSegment->u.buffers.txData);
-        cliPrintLinef("len 0x%08x", curSegment->len);
+        for (int i = 0; curSegment[i].len ; i++) {
+            cliPrintf("rxData 0x%08x ", curSegment[i].u.buffers.rxData);
+            cliPrintf("txData 0x%08x ", curSegment[i].u.buffers.txData);
+            cliPrintLinef("len 0x%08x", curSegment[i].len);
+        }
     } else {
         cliPrintLine("SPI2 inactive");
     }
-    cliPrintLinef("gyro->segments 0x%08x", gyroActiveDev()->segments);
+
+    busSegment_t *gyroSegment = gyroActiveDev()->segments;
+    cliPrintLinef("gyro->segments 0x%08x", gyroSegment);
+    cliPrintf("rxData 0x%08x ", gyroSegment->u.buffers.rxData);
+    cliPrintf("txData 0x%08x ", gyroSegment->u.buffers.txData);
+    cliPrintLinef("len 0x%08x", gyroSegment->len);
+
     if (corruptingTask) {
         cliPrintLinef("corruptingTask %s", corruptingTask->attribute->taskName);
+        cliPrintLinef("corruptingSegment 0x%08x", corruptingSegment);
 
         for (int i = 0; corruptingSegment[i].len ; i++) {
             cliPrintf("rxData 0x%08x ", corruptingSegment[i].u.buffers.rxData);

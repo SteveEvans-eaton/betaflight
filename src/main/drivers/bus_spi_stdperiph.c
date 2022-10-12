@@ -129,6 +129,7 @@ void spiInternalResetDescriptors(busDevice_t *bus)
         initRx->DMA_Priority = DMA_Priority_Low;
         initRx->DMA_PeripheralInc = DMA_PeripheralInc_Disable;
         initRx->DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
+        initRx->DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
     }
 }
 
@@ -204,12 +205,6 @@ void spiInternalInitStream(const extDevice_t *dev, bool preInit)
         } else {
             initRx->DMA_Memory0BaseAddr = (uint32_t)&dummyRxByte;
             initRx->DMA_MemoryInc = DMA_MemoryInc_Disable;
-        }
-        // If possible use 16 bit memory writes to prevent atomic access issues on gyro data
-        if ((initRx->DMA_Memory0BaseAddr & 0x1) || (len & 0x1)) {
-            initRx->DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
-        } else {
-            initRx->DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
         }
         initRx->DMA_BufferSize = len;
     }
