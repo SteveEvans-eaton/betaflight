@@ -327,54 +327,54 @@ static void m25p16_pageProgramBegin(flashDevice_t *fdevice, uint32_t address, vo
 }
 
 
+// The segment list cannot be in automatic storage as this routine is non-blocking
+STATIC_DMA_DATA_AUTO uint8_t readStatus[2] = { M25P16_INSTRUCTION_READ_STATUS_REG, 0 };
+STATIC_DMA_DATA_AUTO uint8_t readyStatus[2];
+STATIC_DMA_DATA_AUTO uint8_t writeEnable[] = { M25P16_INSTRUCTION_WRITE_ENABLE };
+STATIC_DMA_DATA_AUTO uint8_t pageProgram[5] = { M25P16_INSTRUCTION_PAGE_PROGRAM };
+
+busSegment_t flashSegments[] = {
+        {.u.buffers = {readStatus, readyStatus}, sizeof(readStatus), true, m25p16_callbackReady},
+        {.u.buffers = {writeEnable, NULL}, sizeof(writeEnable), true, m25p16_callbackWriteEnable},
+        {.u.buffers = {pageProgram, NULL}, 0, false, NULL},
+        {.u.link = {NULL, NULL}, 0, true, NULL},
+        {.u.link = {NULL, NULL}, 0, true, NULL},
+        {.u.link = {NULL, NULL}, 0, true, NULL},
+};
+
 static uint32_t m25p16_pageProgramContinue(flashDevice_t *fdevice, uint8_t const **buffers, uint32_t *bufferSizes, uint32_t bufferCount)
 {
-    // The segment list cannot be in automatic storage as this routine is non-blocking
-    STATIC_DMA_DATA_AUTO uint8_t readStatus[2] = { M25P16_INSTRUCTION_READ_STATUS_REG, 0 };
-    STATIC_DMA_DATA_AUTO uint8_t readyStatus[2];
-    STATIC_DMA_DATA_AUTO uint8_t writeEnable[] = { M25P16_INSTRUCTION_WRITE_ENABLE };
-    STATIC_DMA_DATA_AUTO uint8_t pageProgram[5] = { M25P16_INSTRUCTION_PAGE_PROGRAM };
-
-    static busSegment_t segments[] = {
-            {.u.buffers = {readStatus, readyStatus}, sizeof(readStatus), true, m25p16_callbackReady},
-            {.u.buffers = {writeEnable, NULL}, sizeof(writeEnable), true, m25p16_callbackWriteEnable},
-            {.u.buffers = {pageProgram, NULL}, 0, false, NULL},
-            {.u.link = {NULL, NULL}, 0, true, NULL},
-            {.u.link = {NULL, NULL}, 0, true, NULL},
-            {.u.link = {NULL, NULL}, 0, true, NULL},
-    };
-
     // Ensure any prior DMA has completed before continuing
     spiWait(fdevice->io.handle.dev);
 
     // Patch the pageProgram segment
-    segments[PAGE_PROGRAM].len = fdevice->isLargeFlash ? 5 : 4;
+    flashSegments[PAGE_PROGRAM].len = fdevice->isLargeFlash ? 5 : 4;
     m25p16_setCommandAddress(&pageProgram[1], fdevice->currentWriteAddress, fdevice->isLargeFlash);
 
-    // Patch the data segments
-    segments[DATA1].u.buffers.txData = (uint8_t *)buffers[0];
-    segments[DATA1].len = bufferSizes[0];
+    // Patch the data flashSegments
+    flashSegments[DATA1].u.buffers.txData = (uint8_t *)buffers[0];
+    flashSegments[DATA1].len = bufferSizes[0];
     fdevice->callbackArg = bufferSizes[0];
 
     if (bufferCount == 1) {
-        segments[DATA1].negateCS = true;
-        segments[DATA1].callback = m25p16_callbackWriteComplete;
+        flashSegments[DATA1].negateCS = true;
+        flashSegments[DATA1].callback = m25p16_callbackWriteComplete;
         // Mark segment following data as being of zero length
-        segments[DATA2].u.buffers.txData = (uint8_t *)NULL;
-        segments[DATA2].len = 0;
+        flashSegments[DATA2].u.buffers.txData = (uint8_t *)NULL;
+        flashSegments[DATA2].len = 0;
     } else if (bufferCount == 2) {
-        segments[DATA1].negateCS = false;
-        segments[DATA1].callback = NULL;
-        segments[DATA2].u.buffers.txData = (uint8_t *)buffers[1];
-        segments[DATA2].len = bufferSizes[1];
+        flashSegments[DATA1].negateCS = false;
+        flashSegments[DATA1].callback = NULL;
+        flashSegments[DATA2].u.buffers.txData = (uint8_t *)buffers[1];
+        flashSegments[DATA2].len = bufferSizes[1];
         fdevice->callbackArg += bufferSizes[1];
-        segments[DATA2].negateCS = true;
-        segments[DATA2].callback = m25p16_callbackWriteComplete;
+        flashSegments[DATA2].negateCS = true;
+        flashSegments[DATA2].callback = m25p16_callbackWriteComplete;
     } else {
         return 0;
     }
 
-    spiSequence(fdevice->io.handle.dev, fdevice->couldBeBusy ? &segments[READ_STATUS] : &segments[WRITE_ENABLE]);
+    spiSequence(fdevice->io.handle.dev, fdevice->couldBeBusy ? &flashSegments[READ_STATUS] : &flashSegments[WRITE_ENABLE]);
 
     if (fdevice->callback == NULL) {
         // No callback was provided so block

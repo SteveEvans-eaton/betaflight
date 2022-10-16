@@ -35,9 +35,11 @@
 #include "drivers/bus_spi_impl.h"
 #include "drivers/exti.h"
 #include "drivers/io.h"
+#include "drivers/pinio.h"
 #include "drivers/rcc.h"
 
 #include "scheduler/scheduler.h"
+#include "sensors/gyro_init.h"
 
 static SPI_InitTypeDef defaultInit = {
     .SPI_Mode = SPI_Mode_Master,
@@ -313,7 +315,9 @@ void spiInternalStopDMA (const extDevice_t *dev)
     }
 }
 
-busSegment_t *corruptingSegment = NULL;
+busSegment_t corruptingSegment;
+busSegment_t corruptingFlashSegments[6];
+busSegment_t *corruptingSegmentPtr = NULL;
 extern task_t *corruptingTask;
 
 // DMA transfer setup and start
@@ -321,13 +325,9 @@ void spiSequenceStart(const extDevice_t *dev)
 {
     busDevice_t *bus = dev->bus;
     SPI_TypeDef *instance = bus->busType_u.spi.instance;
-    bool dmaSafe = dev->useDMA;
+    bool dmaSafe = false; //dev->useDMA;
     uint32_t xferLen = 0;
     uint32_t segmentCount = 0;
-
-    if ((instance == SPI2) && (corruptingTask == NULL)) {
-        corruptingSegment = (busSegment_t *)bus->curSegment;
-    }
 
     dev->bus->initSegment = true;
 
@@ -388,11 +388,41 @@ void spiSequenceStart(const extDevice_t *dev)
                 IOLo(dev->busType_u.spi.csnPin);
             }
 
+            busSegment_t currentSegment = *bus->curSegment;
+
+            if (corruptingSegmentPtr == NULL) {
+                extern busSegment_t flashSegments[];
+
+                for (int i = 0; i < 6; i++) {
+                    corruptingFlashSegments[i] = flashSegments[i];
+                }
+            }
+
+            if ((bus->busType_u.spi.instance == SPI2) && (gyroActiveDev()->segments[0].u.buffers.rxData == (uint8_t *)0xffffffff) && (corruptingSegmentPtr == NULL)) {
+                pinioSet(3, 1);
+                pinioSet(2, 1);
+                pinioSet(2, 0);
+                pinioSet(3, 0);
+                corruptingSegmentPtr = (busSegment_t *)bus->curSegment;
+                corruptingSegment = currentSegment;
+            }
+
             spiInternalReadWriteBufPolled(
                     bus->busType_u.spi.instance,
                     bus->curSegment->u.buffers.txData,
                     bus->curSegment->u.buffers.rxData,
                     bus->curSegment->len);
+
+            if ((bus->busType_u.spi.instance == SPI2) && (gyroActiveDev()->segments[0].u.buffers.rxData == (uint8_t *)0xffffffff) && (corruptingSegmentPtr == NULL)) {
+                pinioSet(3, 1);
+                pinioSet(2, 1);
+                pinioSet(2, 0);
+                pinioSet(2, 1);
+                pinioSet(2, 0);
+                pinioSet(3, 0);
+                corruptingSegmentPtr = (busSegment_t *)bus->curSegment;
+                corruptingSegment = currentSegment;
+            }
 
             if (bus->curSegment->negateCS) {
                 // Negate Chip Select
@@ -422,11 +452,17 @@ void spiSequenceStart(const extDevice_t *dev)
 
         // If a following transaction has been linked, start it
         if (bus->curSegment->u.link.dev) {
+            if (bus->busType_u.spi.instance == SPI2) {
+                pinioSet(3, 1);
+                pinioSet(3, 0);
+            }
+
             const extDevice_t *nextDev = bus->curSegment->u.link.dev;
             busSegment_t *nextSegments = (busSegment_t *)bus->curSegment->u.link.segments;
             busSegment_t *endSegment = (busSegment_t *)bus->curSegment;
             bus->curSegment = nextSegments;
             endSegment->u.link.dev = NULL;
+            endSegment->u.link.segments = NULL;
             spiSequenceStart(nextDev);
         } else {
             // The end of the segment list has been reached, so mark transactions as complete

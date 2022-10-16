@@ -391,7 +391,7 @@ FAST_CODE timeUs_t schedulerExecuteTask(task_t *selectedTask, timeUs_t currentTi
         const timeUs_t currentTimeBeforeTaskCallUs = micros();
         selectedTask->attribute->taskFunc(currentTimeBeforeTaskCallUs);
 
-        if ((gyroActiveDev()->segments[0].len == -1) && (corruptingTask == NULL)) {
+        if ((gyroActiveDev()->segments[0].u.buffers.rxData == (uint8_t *)0xffffffff) && (corruptingTask == NULL)) {
             pinioSet(2, 1);
             pinioSet(2, 0);
             corruptingTask = selectedTask;

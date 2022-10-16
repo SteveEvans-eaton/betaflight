@@ -389,7 +389,7 @@ static void spiIrqHandler(const extDevice_t *dev)
     busDevice_t *bus = dev->bus;
     busSegment_t *nextSegment;
 
-    if ((gyroActiveDev()->segments[0].len == -1) && (corruptingTask == NULL)) {
+    if ((bus->busType_u.spi.instance == SPI2) && (gyroActiveDev()->segments[0].u.buffers.rxData == (uint8_t *)0xffffffff) && (corruptingTask == NULL)) {
         pinioSet(2, 1);
         pinioSet(2, 0);
         pinioSet(2, 1);
@@ -415,7 +415,7 @@ static void spiIrqHandler(const extDevice_t *dev)
         }
     }
 
-    if ((gyroActiveDev()->segments[0].len == -1) && (corruptingTask == NULL)) {
+    if ((bus->busType_u.spi.instance == SPI2) && (gyroActiveDev()->segments[0].u.buffers.rxData == (uint8_t *)0xffffffff) && (corruptingTask == NULL)) {
         pinioSet(2, 1);
         pinioSet(2, 0);
         pinioSet(2, 1);
@@ -435,6 +435,7 @@ static void spiIrqHandler(const extDevice_t *dev)
             // The end of the segment list has been reached
             bus->curSegment = nextSegments;
             nextSegment->u.link.dev = NULL;
+            nextSegment->u.link.segments = NULL;
             spiSequenceStart(nextDev);
         } else {
             // The end of the segment list has been reached, so mark transactions as complete

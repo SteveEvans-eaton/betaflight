@@ -177,7 +177,9 @@ bool cliMode = false;
 static serialPort_t *cliPort = NULL;
 
 extern task_t *corruptingTask;
-extern busSegment_t *corruptingSegment;
+extern busSegment_t *corruptingSegmentPtr;
+extern busSegment_t corruptingSegment;
+extern busSegment_t corruptingFlashSegments[6];
 
 // Space required to set array parameters
 #define CLI_IN_BUFFER_SIZE 256
@@ -4930,13 +4932,27 @@ static void cliSpi(const char *cmdName, char *cmdline)
 
     if (corruptingTask) {
         cliPrintLinef("corruptingTask %s", corruptingTask->attribute->taskName);
-        cliPrintLinef("corruptingSegment 0x%08x", corruptingSegment);
+    }
 
-        for (int i = 0; corruptingSegment[i].len ; i++) {
-            cliPrintf("rxData 0x%08x ", corruptingSegment[i].u.buffers.rxData);
-            cliPrintf("txData 0x%08x ", corruptingSegment[i].u.buffers.txData);
-            cliPrintLinef("len 0x%08x", corruptingSegment[i].len);
-        }
+    if (corruptingSegmentPtr) {
+        cliPrintLinef("corruptingSegment 0x%08x", corruptingSegmentPtr);
+
+        cliPrintf("rxData 0x%08x ", corruptingSegmentPtr->u.buffers.rxData);
+        cliPrintf("txData 0x%08x ", corruptingSegmentPtr->u.buffers.txData);
+        cliPrintLinef("len 0x%08x", corruptingSegmentPtr->len);
+        cliPrintf("rxData 0x%08x ", corruptingSegment.u.buffers.rxData);
+        cliPrintf("txData 0x%08x ", corruptingSegment.u.buffers.txData);
+        cliPrintLinef("len 0x%08x", corruptingSegment.len);
+        cliPrintf("dev 0x%08x ", corruptingSegment.u.link.dev);
+        cliPrintLinef("segments 0x%08x ", corruptingSegment.u.link.segments);
+    }
+
+    for (int i = 0; i < 6; i++) {
+        cliPrintLine("corruptingFlashSegments");
+
+        cliPrintf("%d: rxData 0x%08x ", i, corruptingFlashSegments[i].u.buffers.rxData);
+        cliPrintf("txData 0x%08x ", corruptingFlashSegments[i].u.buffers.txData);
+        cliPrintLinef("len 0x%08x", corruptingFlashSegments[i].len);
     }
 }
 

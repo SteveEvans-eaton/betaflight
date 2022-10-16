@@ -306,9 +306,7 @@ void bmi270ExtiHandler(extiCallbackRec_t *cb)
     gyro->gyroSyncEXTI = gyro->gyroLastEXTI + gyro->gyroDmaMaxDuration;
     gyro->gyroLastEXTI = nowCycles;
 
-    if (gyro->segments[0].len == -1) {
-        pinioSet(3, 1);
-        pinioSet(3, 0);
+    if (gyro->segments[0].u.buffers.rxData == (uint8_t *)0xffffffff) {
         return;
     } else if (gyro->gyroModeSPI == GYRO_EXTI_INT_DMA) {
         pinioSet(0, 1);
