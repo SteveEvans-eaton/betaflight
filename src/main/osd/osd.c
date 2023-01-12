@@ -402,13 +402,13 @@ void pgResetFn_osdConfig(osdConfig_t *osdConfig)
     osdConfig->aux_scale = 200;
     osdConfig->aux_symbol = 'A';
 
-    // Make it obvious on the configurator that the FC doesn't support HD
-#ifdef USE_OSD_HD
-    osdConfig->canvas_cols = OSD_HD_COLS;
-    osdConfig->canvas_rows = OSD_HD_ROWS;
-#else
+    // Match the osd_canvas_width/osd_canvas_height defaults to the most likely configuration
+#ifdef USE_OSD_SD
     osdConfig->canvas_cols = OSD_SD_COLS;
     osdConfig->canvas_rows = OSD_SD_ROWS;
+#else
+    osdConfig->canvas_cols = OSD_HD_COLS;
+    osdConfig->canvas_rows = OSD_HD_ROWS;
 #endif
 }
 
